@@ -19,7 +19,6 @@ Telegram-бот для управления Airdrop Hunter.
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Optional
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -73,12 +72,18 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await _reject(update)
         return
     text = (
-        "<b>Доступные команды:</b>\n\n"
+        "<b>📋 Доступные команды:</b>\n\n"
+        "<b>Система:</b>\n"
         "/ping — проверить, что бот жив\n"
         "/status — состояние системы\n"
-        "/wallets — список кошельков\n"
-        "/scan — запустить сканер DeFiLlama\n"
-        "/help — это сообщение"
+        "/help — это сообщение\n\n"
+        "<b>Кошельки:</b>\n"
+        "/wallets — список всех кошельков\n"
+        "/create_wallet &lt;метка&gt; — создать кошелёк\n"
+        "/balance &lt;адрес|метка&gt; — баланс одного кошелька\n"
+        "/rename_wallet &lt;адрес&gt; &lt;метка&gt; — переименовать\n\n"
+        "<b>Аирдропы:</b>\n"
+        "/scan — запустить сканер DeFiLlama"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -96,7 +101,6 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await _reject(update)
         return
 
-    # Запускаем блокирующие вызовы в отдельном потоке, чтобы не блокировать event loop
     def _collect() -> dict:
         from src.core.rpc import get_active_rpc, get_web3, get_gas_price_gwei
         from src.modules.wallets.manager import wallets_summary
@@ -218,7 +222,6 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     def _run_scan() -> list[dict]:
         from src.modules.scanner.defillama import scan_polygon_candidates
-        # notify=False — не хотим двойных уведомлений в Telegram
         return scan_polygon_candidates(min_tvl=500_000, limit=10, notify=False)
 
     try:
@@ -243,15 +246,20 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
-# --- Точка входа ---
+# --- Регистрация хендлеров ---
 
 def _register_handlers(app: Application) -> None:
+    # Основные команды
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("wallets", cmd_wallets))
     app.add_handler(CommandHandler("scan", cmd_scan))
+
+    # Команды управления кошельками — подключаем из отдельного модуля
+    from src.core.telegram_wallet_cmds import register_wallet_handlers
+    register_wallet_handlers(app)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
