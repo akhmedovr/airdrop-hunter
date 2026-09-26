@@ -2,8 +2,9 @@
 src/modules/scanner/defillama.py
 Сканер аирдроп-кандидатов через публичный API DeFiLlama.
 
-Логика: ищем проекты на Polygon без запущенного токена, но с TVL > порога.
-Это классические кандидаты на будущий аирдроп.
+Логика: ищем проекты на Polygon без запущенного токена, с TVL в заданном
+диапазоне и категорией, которая реально раздаёт аирдропы (отсекаем CEX,
+сети и prediction markets).
 
 Использование:
     from src.modules.scanner.defillama import scan_polygon_candidates
@@ -20,14 +21,48 @@ log = get_logger(__name__)
 
 DEFILLAMA_PROTOCOLS_URL = "https://api.llama.fi/protocols"
 
+# Категории DeFi-протоколов, которые МОГУТ дропать (белый список).
+# Если категория тут — кандидат сохраняется.
+AIRDROPABLE_CATEGORIES = {
+    "dexes",
+    "lending",
+    "yield",
+    "liquid staking",
+    "bridge",
+    "derivatives",
+    "cdp",
+    "farm",
+    "launchpad",
+    "onchain capital allocator",
+    "yield aggregator",
+    "restaking",
+    "liquid restaking",
+    "perpetuals",
+    "options",
+    "insurance",
+    "algo-stables",
+    "services",
+    "oracle",
+    "nft marketplace",
+    "nft lending",
+    "rwa",
+}
+
+# Категории, которые точно НЕ дропают (черный список).
+# Если категория тут — кандидат отбрасывается.
+NON_AIRDROP_CATEGORIES = {
+    "cex",                 # централизованные биржи — не дропают
+    "chain",               # это сети, не протоколы
+    "prediction market",   # спорно — не наш формат
+}
+
 
 def _has_polygon_chain(protocol: dict[str, Any]) -> bool:
     """Проверяет, работает ли протокол на Polygon."""
     chains = protocol.get("chains") or []
     if not isinstance(chains, list):
         return False
-    # DeFiLlama иногда пишет "Polygon" или "Polygon zkEVM" — берём оба
-    return any("polygon" in c.lower() for c in chains)
+    return any("polygon" in str(c).lower() for c in chains)
 
 
 def _has_no_token(protocol: dict[str, Any]) -> bool:
@@ -36,8 +71,30 @@ def _has_no_token(protocol: dict[str, Any]) -> bool:
     Это главный признак будущего аирдропа.
     """
     symbol = protocol.get("symbol") or ""
-    # DeFiLlama пишет "-" или пустую строку если токена нет
     return symbol.strip() in ("", "-")
+
+
+def _is_potential_airdrop_category(protocol: dict[str, Any]) -> bool:
+    """
+    Проверяет категорию протокола.
+    - Черный список → отбрасываем (CEX, chains, prediction markets)
+    - Белый список → оставляем
+    - Неизвестная категория → оставляем (но это может быть шум)
+    """
+    category = (protocol.get("category") or "").lower().strip()
+
+    if not category:
+        return False
+
+    if category in NON_AIRDROP_CATEGORIES:
+        return False
+
+    if category in AIRDROPABLE_CATEGORIES:
+        return True
+
+    # Неизвестная категория — пропускаем, но это видно в логах
+    log.debug(f"Неизвестная категория у {protocol.get('name')}: {category}")
+    return True
 
 
 def _is_not_dead(protocol: dict[str, Any], min_tvl: float) -> bool:
@@ -53,10 +110,7 @@ def _is_not_too_big(protocol: dict[str, Any], max_tvl: float) -> bool:
 
 
 def _to_candidate(protocol: dict[str, Any]) -> dict[str, Any]:
-    """
-    Превращает «сырой» ответ DeFiLlama в наш нормализованный формат.
-    Только нужные поля, никакого мусора.
-    """
+    """Нормализует «сырой» ответ DeFiLlama в наш формат."""
     return {
         "name": protocol.get("name", "Unknown"),
         "slug": protocol.get("slug", ""),
@@ -109,16 +163,17 @@ def scan_polygon_candidates(
     notify: bool = True,
 ) -> list[dict[str, Any]]:
     """
-    Ищет кандидатов на аирдроп: проекты на Polygon без токена с TVL в диапазоне.
+    Ищет кандидатов на аирдроп: проекты на Polygon без токена,
+    в категории из белого списка, с TVL в диапазоне [min_tvl, max_tvl].
 
     Args:
-        min_tvl: минимальный TVL в USD (отсекаем мёртвые проекты)
-        max_tvl: максимальный TVL в USD (отсекаем гигантов)
+        min_tvl: минимальный TVL в USD
+        max_tvl: максимальный TVL в USD
         limit: сколько максимум вернуть
         notify: отправлять ли отчёт в Telegram
 
     Returns:
-        Список словарей-кандидатов (отсортированных по TVL убыв.).
+        Список кандидатов (отсортирован по TVL убыв.).
     """
     protocols = fetch_all_protocols()
     if protocols is None:
@@ -133,6 +188,8 @@ def scan_polygon_candidates(
             continue
         if not _has_no_token(protocol):
             continue
+        if not _is_potential_airdrop_category(protocol):
+            continue
         if not _is_not_dead(protocol, min_tvl):
             continue
         if not _is_not_too_big(protocol, max_tvl):
@@ -146,11 +203,11 @@ def scan_polygon_candidates(
     log.success(f"Найдено кандидатов: {len(candidates)} (топ-{len(top)} отобран)")
 
     if notify and top:
-        lines = ["🔍 Найдены кандидаты на аирдроп (Polygon, без токена):"]
+        lines = ["🔍 Кандидаты на аирдроп (Polygon, DeFi, без токена):"]
         for i, c in enumerate(top[:5], 1):
             tvl_m = c["tvl_usd"] / 1_000_000
-            lines.append(f"{i}. {c['name']} — ${tvl_m:.1f}M TVL")
-        lines.append(f"\nВсего: {len(candidates)}. Топ-{len(top)} в БД/логах.")
+            lines.append(f"{i}. {c['name']} ({c['category']}) — ${tvl_m:.1f}M TVL")
+        lines.append(f"\nВсего: {len(candidates)}. Топ-{len(top)} в логах.")
         notify_scan("\n".join(lines))
 
     return top
@@ -159,6 +216,8 @@ def scan_polygon_candidates(
 __all__ = [
     "fetch_all_protocols",
     "scan_polygon_candidates",
+    "AIRDROPABLE_CATEGORIES",
+    "NON_AIRDROP_CATEGORIES",
 ]
 
 
