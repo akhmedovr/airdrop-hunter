@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # --- БД ---
     DATABASE_URL: str = Field(default="sqlite:///./data/airdrop.db")
 
+    # --- Шифрование кошельков ---
+    WALLET_ENCRYPTION_KEY: str = Field(default="")
+    COLD_WALLET_ADDRESS: str = Field(default="")
+
     # --- Валидация ---
     @field_validator("LOG_LEVEL")
     @classmethod
@@ -59,6 +63,16 @@ class Settings(BaseSettings):
     def validate_rpc(cls, v: str) -> str:
         if not v.startswith("http"):
             raise ValueError("POLYGON_RPC_URL должен начинаться с http:// или https://")
+        return v
+
+    @field_validator("WALLET_ENCRYPTION_KEY")
+    @classmethod
+    def validate_encryption_key(cls, v: str) -> str:
+        if v and len(v) < 32:
+            raise ValueError(
+                "WALLET_ENCRYPTION_KEY должен быть не короче 32 символов. "
+                "Сгенерируй: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+            )
         return v
 
 
