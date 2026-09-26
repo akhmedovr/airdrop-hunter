@@ -23,46 +23,69 @@
 
 ## 📁 Структура
 
-airdrop-hunter/
-├── src/
-│   ├── core/
-│   ├── modules/
-│   ├── services/
-│   └── main.py
-├── data/
-├── sessions/
-└── venv/
+**src/core/** — ядро (config, logger, database)
+
+**src/modules/scanner/** — поиск аирдропов
+
+**src/modules/executor/** — выполнение задач
+
+**src/modules/wallets/** — управление кошельками
+
+**src/services/** — интеграции (Zealy, Galxe, Layer3)
+
+**src/main.py** — точка входа
+
+**data/** — БД и логи
+
+**sessions/** — сессии браузера
+
+**venv/** — виртуальное окружение
 
 ## 🚀 Установка
 
-### 1. Клонировать репозиторий
+### Шаг 1. Клонировать репозиторий
 
+Команда:
 git clone https://github.com/akhmedovr/airdrop-hunter.git
+
+Затем перейти в папку:
 cd airdrop-hunter
 
-### 2. Создать виртуальное окружение
+### Шаг 2. Создать виртуальное окружение
 
+Команда:
 python3 -m venv venv
+
+Активировать:
 source venv/bin/activate
 
-### 3. Установить зависимости
+### Шаг 3. Установить зависимости
 
+Команда:
 pip install -r requirements.txt
+
+Затем установить браузер:
 playwright install chromium
+
+И системные зависимости:
 playwright install-deps chromium
 
-### 4. Настроить окружение
+### Шаг 4. Настроить окружение
 
+Скопировать шаблон:
 cp .env.example .env
+
+Открыть для редактирования:
 nano .env
 
-### 5. Запустить
+### Шаг 5. Запустить бота
 
+Команда:
 python -m src.main
 
 ## ⚠️ Важно
 
-- .env не коммитится в git — там секреты
+- **.env** не коммитится в git — там секреты
 - Приватные ключи кошельков хранятся только в .env
 - Используй отдельные кошельки для тестов и реальных денег
 - Не заводи больше денег, чем готов потерять
