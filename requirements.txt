@@ -1,0 +1,28 @@
+# =========================================================================
+# Airdrop Hunter — Production dependencies
+# Python 3.11+
+# =========================================================================
+
+# --- Blockchain ---
+web3==8.0.0
+
+# --- Browser Automation ---
+playwright==1.63.0
+
+# --- HTTP / API ---
+httpx==0.28.1
+requests==2.34.2
+tenacity==9.1.4
+
+# --- Data Validation ---
+pydantic==2.13.5
+
+# --- Database ---
+SQLAlchemy==2.1.1
+
+# --- Scheduler ---
+APScheduler==3.11.3
+
+# --- Config / Logging ---
+python-dotenv==1.2.3
+loguru==0.7.3
