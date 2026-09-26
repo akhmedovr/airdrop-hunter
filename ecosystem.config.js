@@ -1,11 +1,9 @@
 // ecosystem.config.js
 // Конфигурация PM2 для Airdrop Hunter.
 //
-// Запуск:  pm2 start ecosystem.config.js
-// Логи:    pm2 logs airdrop-hunter-bot
-// Стоп:    pm2 stop airdrop-hunter-bot
-// Рестарт: pm2 restart airdrop-hunter-bot
-// Статус:  pm2 status
+// Запуск:    pm2 start ecosystem.config.js
+// Логи:      pm2 logs
+// Статус:    pm2 status
 
 module.exports = {
   apps: [
@@ -14,29 +12,39 @@ module.exports = {
       script: "./venv/bin/python",
       args: "-m src.core.telegram_bot",
       cwd: "/root/airdrop-hunter",
-
-      // Один процесс, без кластеризации (у нас один бот)
       instances: 1,
       exec_mode: "fork",
-
-      // Автозапуск при перезагрузке сервера
       autorestart: true,
       max_restarts: 10,
       min_uptime: "30s",
-
-      // Логи (пишутся в ~/.pm2/logs/)
-      output: "./logs/pm2-out.log",
-      error: "./logs/pm2-err.log",
+      output: "./logs/pm2-bot-out.log",
+      error: "./logs/pm2-bot-err.log",
       merge_logs: true,
       time: true,
-
-      // Переменные окружения
       env: {
-        PYTHONUNBUFFERED: "1",  // не буферизовать stdout Python
-        PYTHONDONTWRITEBYTECODE: "1",  // не создавать .pyc файлы
+        PYTHONUNBUFFERED: "1",
+        PYTHONDONTWRITEBYTECODE: "1",
       },
-
-      // Автоперезапуск при изменении файлов (для dev)
+      watch: false,
+    },
+    {
+      name: "airdrop-hunter-scheduler",
+      script: "./venv/bin/python",
+      args: "-m src.core.scheduler",
+      cwd: "/root/airdrop-hunter",
+      instancesготов: 1,
+      exec_mode: "оfork",
+      autorestart: true,
+      max»_restarts: 10,
+      min —_uptime: "30s",
+      output и: "./logs/pm2-sched-out.log",
+      error: "./logs/pm2-sched-err.log",
+      merge_logs: true,
+      time: true,
+      env: {
+        PYTHONUNBUFFERED: "1",
+        PYTHONDONTWRITEBYTECODE: "1",
+      },
       watch: false,
     },
   ],
