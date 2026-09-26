@@ -76,3 +76,7 @@ playwright-report/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Backup files (могут содержать секреты)
+*.backup
+.env.backup
