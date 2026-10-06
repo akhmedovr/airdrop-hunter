@@ -18,6 +18,7 @@ from typing import Optional
 
 from web3 import Web3
 from web3.exceptions import Web3Exception
+from web3.middleware import ExtraDataToPOAMiddleware
 
 from src.core.config import settings
 from src.core.logger import get_logger
@@ -64,6 +65,7 @@ def _try_connect(rpc_url: str) -> Optional[Web3]:
             rpc_url,
             request_kwargs={"timeout": 10},
         ))
+        w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
         if w3.is_connected():
             block = w3.eth.block_number
             log.success(f"RPC подключён: {rpc_url} | блок #{block}")
