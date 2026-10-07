@@ -21,6 +21,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from src.core.config import settings
 from src.core.logger import get_logger
+from src.core.heartbeat import write_heartbeat
 from src.core.notifier import (
     notify_error,
     notify_scan,
@@ -34,6 +35,7 @@ log = get_logger(__name__)
 SCAN_INTERVAL_HOURS = 6
 BALANCE_CHECK_INTERVAL_HOURS = 24
 RPC_PING_INTERVAL_HOURS = 1
+HEARTBEAT_INTERVAL_MINUTES = 5
 
 
 # --- Задачи ---
@@ -226,6 +228,16 @@ def run_scheduler() -> None:
         f"scan: каждые {SCAN_INTERVAL_HOURS}ч\n"
         f"balances: каждые {BALANCE_CHECK_INTERVAL_HOURS}ч\n"
         f"rpc: каждый час"
+    )
+
+    scheduler.add_job(
+        write_heartbeat,
+        trigger=IntervalTrigger(minutes=HEARTBEAT_INTERVAL_MINUTES),
+        id="heartbeat",
+        next_run_time=datetime.now(timezone.utc),
+        name="Heartbeat write",
+        max_instances=1,
+        coalesce=True,
     )
 
     try:
