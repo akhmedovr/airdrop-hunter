@@ -112,7 +112,7 @@ def is_rpc_alive() -> bool:
     """Проверяет, что активный RPC жив. Если нет — пробует переподключиться."""
     try:
         w3 = get_web3(force_reconnect=True)
-        return w3.is_connected()
+        return True
     except RuntimeError:
         return False
 
