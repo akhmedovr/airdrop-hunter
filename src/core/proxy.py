@@ -21,10 +21,24 @@ src/core/proxy.py
 
 from typing import Optional
 
+import time
+
 from src.core.config import settings
 from src.core.logger import get_logger
+from src.core.notifier import notify_warning
 
 log = get_logger(__name__)
+
+_last_alert_time: dict = {}
+ALERT_COOLDOWN_SEC = 3600
+
+
+def _maybe_alert(label: str) -> None:
+    now = time.time()
+    last = _last_alert_time.get(label, 0)
+    if now - last > ALERT_COOLDOWN_SEC:
+        notify_warning(f"⚠️ Прокси для {label} не задан — работаем с серверного IP (Sybil-риск!)")
+        _last_alert_time[label] = now
 
 
 def _proxy_map() -> dict[str, str]:
@@ -54,6 +68,7 @@ def get_proxy_for_label(label: str) -> Optional[str]:
         log.debug(f"Прокси для {label}: {_mask_proxy(url)}")
     else:
         log.warning(f"Прокси для {label} не задан — работаем напрямую")
+        _maybe_alert(label)
     return url
 
 
