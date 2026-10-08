@@ -87,8 +87,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/scan — запустить сканер DeFiLlama\n"
         "/quests — активные квесты Galxe\n"
         "<b>Свапы:</b>\n"
-        "/quote <from> <to> <amt> — показать курс\n"
-        "/swap <from> <to> <amt> — выполнить свап"
+        "/quote &lt;from&gt; &lt;to&gt; &lt;amt&gt; — показать курс\n"
+        "/swap &lt;from&gt; &lt;to&gt; &lt;amt&gt; — выполнить свап"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
