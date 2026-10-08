@@ -89,7 +89,7 @@ def _build_client(
 
     effective_proxy = proxy or settings.PROXY_URL
     if effective_proxy:
-        kwargs["proxies"] = effective_proxy
+        kwargs["proxy"] = effective_proxy
         log.debug(f"HTTP через прокси: {_mask_url(effective_proxy)}")
 
     return httpx.Client(**kwargs)
