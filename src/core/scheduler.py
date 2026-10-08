@@ -21,6 +21,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from src.core.config import settings
 from src.core.logger import get_logger
+from src.core.galxe_jobs import job_scan_galxe
 from src.core.heartbeat import write_heartbeat
 from src.core.notifier import (
     notify_error,
@@ -33,6 +34,7 @@ log = get_logger(__name__)
 
 # Интервалы задач (в часах). Можно будет вынести в .env позже.
 SCAN_INTERVAL_HOURS = 6
+GALXE_SCAN_INTERVAL_HOURS = 6
 BALANCE_CHECK_INTERVAL_HOURS = 24
 RPC_PING_INTERVAL_HOURS = 1
 HEARTBEAT_INTERVAL_MINUTES = 5
@@ -245,6 +247,15 @@ def run_scheduler() -> None:
         id="heartbeat",
         next_run_time=datetime.now(timezone.utc),
         name="Heartbeat write",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    scheduler.add_job(
+        job_scan_galxe,
+        trigger=IntervalTrigger(hours=GALXE_SCAN_INTERVAL_HOURS),
+        id="scan_galxe",
+        name="Galxe scan",
         max_instances=1,
         coalesce=True,
     )
