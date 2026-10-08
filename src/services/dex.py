@@ -7,6 +7,7 @@ from src.core.http import get as http_get, post as http_post
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.rpc import get_web3
+from src.core.proxy import get_proxy_for_wallet
 from src.modules.executor.erc20 import approve, get_allowance, get_token_info
 
 log = get_logger(__name__)
@@ -94,7 +95,6 @@ def get_quote(token_in, token_out, amount, from_address=None):
 
 def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notify=True):
     from src.modules.wallets.manager import get_all_wallets, get_private_key
-    w3 = get_web3()
     from_address = None
     for w in get_all_wallets():
         if w.label.lower() == from_label.lower():
@@ -104,6 +104,10 @@ def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notif
         if notify:
             notify_error("Wallet not found: " + from_label)
         return None
+
+    # Прокси для кошелька
+    proxy = get_proxy_for_wallet(from_address)
+    w3 = get_web3(proxy=proxy)
     private_key = get_private_key(from_address)
     if private_key is None:
         if notify:
