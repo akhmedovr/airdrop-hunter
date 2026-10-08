@@ -96,7 +96,9 @@ def job_check_balances() -> None:
 
         for w in wallets:
             try:
-                bal = get_balance_matic(w.address)
+                from src.core.proxy import get_proxy_for_wallet
+                proxy = get_proxy_for_wallet(w.address)
+                bal = get_balance_matic(w.address, proxy=proxy)
                 update_balance(w.address, bal)
 
                 # Если баланс раньше был 0, а теперь есть — это важно
