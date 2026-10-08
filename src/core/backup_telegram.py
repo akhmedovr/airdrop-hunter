@@ -21,8 +21,8 @@ log = get_logger(__name__)
 TELEGRAM_API_BASE = "https://api.telegram.org"
 BACKUP_DIR = Path("/root/backups")
 def _find_latest_backup() -> Path:
-    """Находит самый свежий backup_*.tar.gz. Кидает FileNotFoundError если нет."""
-    pattern = str(BACKUP_DIR / "backup_*.tar.gz")
+    """Находит самый свежий backup_*.tar.gz.enc. Кидает FileNotFoundError если нет."""
+    pattern = str(BACKUP_DIR / "backup_*.tar.gz.enc")
     files = glob.glob(pattern)
     if not files:
         raise FileNotFoundError(f"Нет бэкапов в {BACKUP_DIR}")
