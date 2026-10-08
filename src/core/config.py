@@ -32,14 +32,22 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = Field(default="")
     TELEGRAM_CHAT_ID: str = Field(default="")
 
-    # --- Прокси ---
+    # --- Прокси (общий, устаревший) ---
     PROXY_URL: Optional[str] = Field(default=None)
+
+    # --- Прокси для кошельков (по одному на кошелёк) ---
+    PROXY_FARM_01: Optional[str] = Field(default=None)
+    PROXY_FARM_02: Optional[str] = Field(default=None)
+    PROXY_FARM_03: Optional[str] = Field(default=None)
 
     # --- RPC ---
     POLYGON_RPC_URL: str = Field(default="https://polygon-rpc.com")
 
     # --- Капча ---
     CAPTCHA_API_KEY: Optional[str] = Field(default=None)
+
+    # --- 1inch API ---
+    ONEINCH_API_KEY: Optional[str] = Field(default=None)
 
     # --- БД ---
     DATABASE_URL: str = Field(default="sqlite:///./data/airdrop.db")
