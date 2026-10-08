@@ -12,6 +12,7 @@ Telegram-бот для управления Airdrop Hunter.
     /status   — статус системы (RPC, кошельки, окружение)
     /wallets  — список кошельков с балансами
     /scan     — запустить сканер DeFiLlama вручную
+    /quests   — активные квесты Galxe
 
 Запуск:
     python -m src.core.telegram_bot
@@ -83,7 +84,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/balance &lt;адрес|метка&gt; — баланс одного кошелька\n"
         "/rename_wallet &lt;адрес&gt; &lt;метка&gt; — переименовать\n\n"
         "<b>Аирдропы:</b>\n"
-        "/scan — запустить сканер DeFiLlama"
+        "/scan — запустить сканер DeFiLlama\n"
+        "/quests — активные квесты Galxe"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -104,6 +106,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     def _collect() -> dict:
         from src.core.rpc import get_active_rpc, get_web3, get_gas_price_gwei
         from src.modules.wallets.manager import wallets_summary
+        from src.core.proxy import proxy_status
 
         info: dict = {
             "environment": settings.ENVIRONMENT,
@@ -113,6 +116,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             "gas_gwei": None,
             "rpc_error": None,
             "wallets": None,
+            "proxies": None,
         }
         try:
             w3 = get_web3()
@@ -126,6 +130,11 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             info["wallets"] = wallets_summary()
         except Exception as e:
             info["wallets"] = {"error": str(e)[:200]}
+
+        try:
+            info["proxies"] = proxy_status()
+        except Exception as e:
+            info["proxies"] = {"error": str(e)[:200]}
 
         return info
 
@@ -163,6 +172,13 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     else:
         lines.append(f"👛 Кошельки: ошибка — {wallets}")
 
+    proxies = info["proxies"]
+    if isinstance(proxies, dict) and "total_configured" in proxies:
+        labels = ", ".join(proxies.get("labels", []))
+        lines.append(f"🛡 Прокси: {proxies['total_configured']} ({labels})")
+    else:
+        lines.append(f"🛡 Прокси: ошибка — {proxies}")
+
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
@@ -173,12 +189,14 @@ async def cmd_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     def _collect() -> list[dict]:
         from src.core.rpc import get_balance_matic
+        from src.core.proxy import get_proxy_for_wallet
         from src.modules.wallets.manager import get_all_wallets
 
         result = []
         for w in get_all_wallets():
             try:
-                bal = get_balance_matic(w.address)
+                proxy = get_proxy_for_wallet(w.address)
+                bal = get_balance_matic(w.address, proxy=proxy)
             except Exception as e:
                 log.warning(f"Не смог получить баланс {w.address[:10]}: {e}")
                 bal = None
@@ -246,6 +264,42 @@ async def cmd_scan(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
+async def cmd_quests(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Показывает активные квесты Galxe."""
+    if not _is_owner(update):
+        await _reject(update)
+        return
+
+    await update.message.reply_text("🔍 Запрашиваю активные квесты Galxe...")
+
+    def _run() -> list[dict]:
+        from src.modules.scanner.galxe import fetch_active_quests
+        return fetch_active_quests(limit=15, notify=False)
+
+    try:
+        quests = await asyncio.to_thread(_run)
+    except Exception as e:
+        log.exception("Galxe scanner упал")
+        await update.message.reply_text(f"❌ Ошибка: {str(e)[:200]}")
+        return
+
+    if not quests:
+        await update.message.reply_text("🤷 Активных квестов не найдено.")
+        return
+
+    lines = ["<b>🎯 Активные квесты Galxe:</b>", ""]
+    for i, q in enumerate(quests[:10], 1):
+        lines.append(f"{i}. <b>{q['name']}</b>")
+        lines.append(f"    <a href='{q['url']}'>Открыть квест</a>")
+    lines.append(f"\nВсего активных: {len(quests)}")
+
+    await update.message.reply_text(
+        "\n".join(lines),
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
+    )
+
+
 # --- Регистрация хендлеров ---
 
 def _register_handlers(app: Application) -> None:
@@ -256,6 +310,7 @@ def _register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("wallets", cmd_wallets))
     app.add_handler(CommandHandler("scan", cmd_scan))
+    app.add_handler(CommandHandler("quests", cmd_quests))
 
     # Команды управления кошельками — подключаем из отдельного модуля
     from src.core.telegram_wallet_cmds import register_wallet_handlers
