@@ -25,6 +25,24 @@ async def _reject(update: Update) -> None:
         await update.message.reply_text("Приватный бот")
 
 
+
+
+def _resolve_token(sym: str) -> str:
+    """Символ -> адрес контракта на Polygon."""
+    s = sym.upper().strip()
+    if s in ("MATIC", "POL", "NATIVE", "WMATIC"):
+        return "native"
+    known = {
+        "USDT": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+        "USDC": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+    }
+    if s in known:
+        return known[s]
+    if s.startswith("0x") and len(s) == 42:
+        return sym
+    raise ValueError(f"Unknown token: {sym}")
+
+
 async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_owner(update):
         await _reject(update)
@@ -39,6 +57,13 @@ async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Сумма должна быть числом")
         return
     await update.message.reply_text("Запрашиваю курс...")
+    try:
+        t_in = _resolve_token(t_in)
+        t_out = _resolve_token(t_out)
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+        return
+
     def _run():
         from src.services.dex import get_quote
         from src.modules.wallets.manager import get_all_wallets
@@ -73,6 +98,12 @@ async def cmd_swap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Сумма должна быть числом")
         return
     await update.message.reply_text(f"Запускаю свап {amt} {t_in} -> {t_out}...")
+    try:
+        t_in = _resolve_token(t_in)
+        t_out = _resolve_token(t_out)
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+        return
     def _run():
         from src.services.dex import swap
         from src.modules.wallets.manager import get_all_wallets
