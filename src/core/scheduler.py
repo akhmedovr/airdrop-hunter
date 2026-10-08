@@ -93,6 +93,7 @@ def job_check_balances() -> None:
             return
 
         funded: list[tuple[str, float]] = []
+        low_balance: list[tuple[str, float]] = []
 
         for w in wallets:
             try:
@@ -105,6 +106,8 @@ def job_check_balances() -> None:
                 old_bal = float(w.balance_usd or 0.0)
                 if bal > 0 and old_bal == 0:
                     funded.append((w.label, bal))
+                if bal < 2.0:
+                    low_balance.append((w.label, bal))
 
                 log.info(f"[scheduler] {w.label}: {bal:.4f} MATIC")
             except Exception as e:
@@ -115,6 +118,10 @@ def job_check_balances() -> None:
             for label, bal in funded:
                 lines.append(f"• {label}: {bal:.4f} MATIC")
             notify_success("\n".join(lines))
+        if low_balance:
+            for lbl, bl in low_balance:
+                notify_warning(f"⚠️ Низкий газ: {lbl} — {bl:.4f} POL")
+
 
     except Exception as e:
         log.exception("[scheduler] Ошибка в job_check_balances")
