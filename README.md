@@ -170,7 +170,11 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 - Telegram-бот отвечает только владельцу (проверка по `chat_id`)
 - Используй отдельные кошельки для тестов и реальных денег
 - Не заводи больше денег, чем готов потерять
-
+## 🛡 Anti-Sybil
+- **Прокси на каждый кошелёк** — свой резидентный IP (Германия / Франция / Нидерланды)
+- **Sticky sessions** — IP держится 24 часа для одного кошелька
+- **Все запросы через прокси** — Web3, HTTP, транзакции, свапы
+- **Управление** — `src/core/proxy.py`, конфиг в `.env` (`PROXY_FARM_01`, `PROXY_FARM_02`, `PROXY_FARM_03`)
 ## 📊 Логи
 
 - **Loguru**: `logs/airdrop.log` с ротацией
