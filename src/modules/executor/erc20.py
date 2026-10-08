@@ -27,6 +27,7 @@ from web3.types import TxReceipt
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.rpc import get_web3
+from src.core.proxy import get_proxy_for_wallet
 
 log = get_logger(__name__)
 
@@ -315,13 +316,15 @@ def approve(
     if info is None:
         return None
 
-    w3 = get_web3()
-
     owner = _resolve_wallet(owner_label_or_address)
     if owner is None:
         if notify:
             notify_error(f"Кошелёк не найден: {owner_label_or_address}")
         return None
+
+    # 1b. Прокси для кошелька
+    proxy = get_proxy_for_wallet(owner)
+    w3 = get_web3(proxy=proxy)
 
     spender = Web3.to_checksum_address(spender)
 
@@ -423,13 +426,15 @@ def transfer_token(
     if info is None:
         return None
 
-    w3 = get_web3()
-
     from_addr = _resolve_wallet(from_label_or_address)
     if from_addr is None:
         if notify:
             notify_error(f"Кошелёк не найден: {from_label_or_address}")
         return None
+
+    # 1b. Прокси для кошелька
+    proxy = get_proxy_for_wallet(from_addr)
+    w3 = get_web3(proxy=proxy)
 
     to_addr = Web3.to_checksum_address(to_address)
 
