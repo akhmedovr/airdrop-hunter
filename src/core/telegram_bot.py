@@ -85,7 +85,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/rename_wallet &lt;адрес&gt; &lt;метка&gt; — переименовать\n\n"
         "<b>Аирдропы:</b>\n"
         "/scan — запустить сканер DeFiLlama\n"
-        "/quests — активные квесты Galxe"
+        "/quests — активные квесты Galxe\n"
+        "<b>Свапы:</b>\n"
+        "/quote <from> <to> <amt> — показать курс\n"
+        "/swap <from> <to> <amt> — выполнить свап"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -315,6 +318,8 @@ def _register_handlers(app: Application) -> None:
     # Команды управления кошельками — подключаем из отдельного модуля
     from src.core.telegram_wallet_cmds import register_wallet_handlers
     register_wallet_handlers(app)
+    from src.core.swap_cmds import register_swap_handlers
+    register_swap_handlers(app)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
