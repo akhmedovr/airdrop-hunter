@@ -7,6 +7,7 @@ from src.core.http import get as http_get, post as http_post
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.rpc import get_web3
+from src.core.safe_tx import safe_send
 from src.core.proxy import get_proxy_for_wallet
 from src.modules.executor.erc20 import approve, get_allowance, get_token_info
 
@@ -158,7 +159,7 @@ def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notif
             notify_error("Sign: " + str(e)[:150])
         return None
     try:
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        tx_hash = safe_send(w3, signed)
     except Exception as e:
         log.exception("Send error")
         if notify:

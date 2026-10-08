@@ -27,6 +27,7 @@ from web3.types import TxReceipt
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.rpc import get_web3
+from src.core.safe_tx import safe_send
 from src.core.proxy import get_proxy_for_wallet
 
 log = get_logger(__name__)
@@ -230,7 +231,7 @@ def _sign_and_send(
         return None
 
     try:
-        tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+        tx_hash = safe_send(w3, signed)
     except Exception as e:
         log.exception(f"Ошибка отправки ({action_name})")
         if notify:
