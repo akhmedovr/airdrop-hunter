@@ -29,6 +29,8 @@ from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.rpc import get_web3
 from src.core.proxy import get_proxy_for_wallet
 
+MIN_GAS_RESERVE_MATIC = 0.01
+
 log = get_logger(__name__)
 
 # Таймаут ожидания receipt (секунды)
@@ -155,10 +157,10 @@ def send_native(
     balance_wei = w3.eth.get_balance(from_address)
     balance_matic = float(Web3.from_wei(balance_wei, "ether"))
 
-    if balance_matic < amount_matic:
+    if balance_matic < amount_matic + MIN_GAS_RESERVE_MATIC:
         msg = (
             f"Недостаточно MATIC: есть {balance_matic:.4f}, "
-            f"нужно {amount_matic:.4f}"
+            f"нужно {amount_matic:.4f} (+ {MIN_GAS_RESERVE_MATIC} на газ)"
         )
         log.error(msg)
         if notify:
