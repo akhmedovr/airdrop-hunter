@@ -6,7 +6,6 @@ Galxe API работает без токена — читаем публичны
 
 Возможности:
     - fetch_active_quests()  — топ-N активных квестов
-    - Сохранение в БД (таблица Airdrop)
     - Уведомления в Telegram
 
 Использование:
@@ -25,10 +24,8 @@ log = get_logger(__name__)
 GALXE_API = "https://graphigo.prd.galaxy.eco/query"
 GALXE_APP = "https://app.galxe.com/quest"
 
-# Значения listType в enum Galxe
 LIST_TYPES = ["Newest", "Trending"]
 
-# GraphQL-запрос: id + name + status
 _QUERY = """
 query GetCampaigns($first: Int!, $listType: ListType) {
   campaigns(input: {first: $first, listType: $listType}) {
@@ -36,6 +33,9 @@ query GetCampaigns($first: Int!, $listType: ListType) {
       id
       name
       status
+      space {
+        alias
+      }
     }
   }
 }
@@ -43,10 +43,7 @@ query GetCampaigns($first: Int!, $listType: ListType) {
 
 
 def _fetch_by_type(list_type: str, limit: int = 20) -> list[dict[str, Any]]:
-    """
-    Запрашивает кампании одного listType (Newest или Trending).
-    Возвращает список словарей {id, name, status, url} или [].
-    """
+    """Запрашивает кампании одного listType (Newest или Trending)."""
     payload = {
         "query": _QUERY,
         "variables": {"first": limit, "listType": list_type},
@@ -82,13 +79,23 @@ def _fetch_by_type(list_type: str, limit: int = 20) -> list[dict[str, Any]]:
         camp_id = item.get("id")
         name = item.get("name")
         status = item.get("status")
+        space = item.get("space") or {}
+        slug = space.get("alias") or ""
+
         if not camp_id or not name:
             continue
+
+        if slug:
+            url = f"{GALXE_APP}/{slug}/{camp_id}"
+        else:
+            url = f"{GALXE_APP}/{camp_id}"
+
         result.append({
             "id": camp_id,
             "name": name,
             "status": status,
-            "url": f"{GALXE_APP}/{camp_id}",
+            "slug": slug,
+            "url": url,
             "source": "galxe",
             "list_type": list_type,
         })
@@ -97,17 +104,7 @@ def _fetch_by_type(list_type: str, limit: int = 20) -> list[dict[str, Any]]:
 
 
 def fetch_active_quests(limit: int = 20, notify: bool = False) -> list[dict[str, Any]]:
-    """
-    Забирает активные квесты Galxe (Newest + Trending).
-    Дедуплицирует по id. Фильтрует только status == "Active".
-
-    Args:
-        limit: сколько с каждого listType (Newest + Trending)
-        notify: отправлять ли отчёт в Telegram
-
-    Returns:
-        Список активных квестов.
-    """
+    """Забирает активные квесты Galxe (Newest + Trending)."""
     log.info(f"Сканер Galxe: запрашиваю квесты (limit={limit} на listType)")
 
     all_quests: dict[str, dict[str, Any]] = {}
@@ -116,16 +113,14 @@ def fetch_active_quests(limit: int = 20, notify: bool = False) -> list[dict[str,
         quests = _fetch_by_type(list_type, limit=limit)
         log.info(f"Galxe [{list_type}]: получено {len(quests)}")
         for q in quests:
-            # дедуп по id; "Active" приоритетнее
             if q["id"] not in all_quests:
                 all_quests[q["id"]] = q
 
-    # Фильтр только активных
     active = [q for q in all_quests.values() if q["status"] == "Active"]
     log.success(f"Galxe: активных уникальных квестов — {len(active)}")
 
     if notify and active:
-        lines = ["🔍 Активные квесты Galxe:"]
+        lines = ["🎯 Активные квесты Galxe:"]
         for i, q in enumerate(active[:5], 1):
             lines.append(f"{i}. {q['name']}")
             lines.append(f"    {q['url']}")
@@ -143,7 +138,6 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    # Быстрый тест: python -m src.modules.scanner.galxe
     log.info("Тест сканера Galxe...")
     quests = fetch_active_quests(limit=10, notify=False)
 
@@ -153,6 +147,5 @@ if __name__ == "__main__":
         print(f"\n✅ Найдено активных квестов: {len(quests)}\n")
         for i, q in enumerate(quests[:10], 1):
             print(f"{i}. {q['name']}")
-            print(f"   Status: {q['status']} | Source: {q['list_type']}")
             print(f"   {q['url']}")
             print()
