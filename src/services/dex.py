@@ -128,11 +128,12 @@ def get_quote(token_in, token_out, amount, from_address=None):
     }
 
 
-def swap(from_label, token_in, token_out, amount, slippage=2.0, wait=True, notify=True):
+def swap(from_label, token_in, token_out, amount, slippage=5.0, wait=True, notify=True):
     """
     Свап через KyberSwap.
 
-    slippage — в процентах (2.0 = 2%). Для мелких сумм поднимаем до 3%.
+    slippage — в процентах (5.0 = 5%). Для мелких сумм повышен,
+    т.к. Kyber может отклонить tx при малейшем движении цены.
     """
     from src.modules.wallets.manager import get_all_wallets, get_private_key
 
@@ -199,8 +200,7 @@ def swap(from_label, token_in, token_out, amount, slippage=2.0, wait=True, notif
     router_address = Web3.to_checksum_address(tx_info["routerAddress"])
     calldata = tx_info["data"]
 
-    # === ФИКС: amountIn из build_data может отсутствовать.
-    # Берём его из routeSummary (там он всегда есть). ===
+    # amountIn может отсутствовать в build_data — берём из routeSummary (там всегда есть)
     amount_in_raw = int(
         tx_info.get("amountIn")
         or quote["route_summary"].get("amountIn")
@@ -227,7 +227,7 @@ def swap(from_label, token_in, token_out, amount, slippage=2.0, wait=True, notif
         "value": amount_in_raw if _is_native(token_in) else 0,
         "nonce": nonce,
         "chainId": w3.eth.chain_id,
-        "gas": 400000,
+        "gas": 800000,
     }
 
     latest = w3.eth.get_block("latest")
