@@ -3,11 +3,11 @@ src/modules/executor/erc20.py
 Работа с ERC-20 токенами: балансы, approve, transfer.
 
 Базовые операции:
-    - get_token_info(token)              — symbol/decimals/name
-    - get_token_balance(addr, token)     — баланс токена
+    - get_token_info(token)               — symbol/decimals/name
+    - get_token_balance(addr, token)      — баланс токена
     - get_allowance(owner, spender, token) — текущий allowance
-    - approve(spender, token, amount)    — разрешить тратить токены
-    - transfer_token(token, to, amount)  — отправить токены
+    - approve(spender, token, amount)     — разрешить тратить токены
+    - transfer_token(token, to, amount)   — отправить токены
 
 Все транзакции подписываются приватным ключом из БД (расшифровка Fernet).
 
@@ -26,9 +26,9 @@ from web3.types import TxReceipt
 
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_money, notify_success
+from src.core.proxy import get_proxy_for_wallet
 from src.core.rpc import get_web3
 from src.core.safe_tx import safe_send
-from src.core.proxy import get_proxy_for_wallet
 
 log = get_logger(__name__)
 
@@ -103,16 +103,20 @@ PRIORITY_FEE_GWEI = 30
 
 # --- Чтение ---
 
-def get_token_info(token_address: str) -> Optional[dict]:
+def get_token_info(
+    token_address: str,
+    proxy: Optional[str] = None,
+) -> Optional[dict]:
     """
-    Возвращает {symbol, decimals, name} или None.
+    Возвращает {address, symbol, decimals, name} или None.
     Кэшируется в памяти процесса (см. _TOKEN_CACHE).
+    Если proxy передан — запрос идёт через него.
     """
     if token_address in _TOKEN_CACHE:
         return _TOKEN_CACHE[token_address]
 
     try:
-        w3 = get_web3()
+        w3 = get_web3(proxy=proxy)
         token = w3.eth.contract(
             address=Web3.to_checksum_address(token_address),
             abi=ERC20_ABI,
@@ -137,14 +141,17 @@ _TOKEN_CACHE: dict[str, dict] = {}
 def get_token_balance(wallet_address: str, token_address: str) -> Optional[float]:
     """
     Баланс ERC-20 токена в человеческих единицах (учитывает decimals).
+    Запрос идёт через прокси, привязанный к кошельку.
     None при ошибке.
     """
-    info = get_token_info(token_address)
+    proxy = get_proxy_for_wallet(wallet_address)
+
+    info = get_token_info(token_address, proxy=proxy)
     if info is None:
         return None
 
     try:
-        w3 = get_web3()
+        w3 = get_web3(proxy=proxy)
         token = w3.eth.contract(
             address=info["address"],
             abi=ERC20_ABI,
@@ -165,14 +172,17 @@ def get_allowance(
 ) -> Optional[float]:
     """
     Текущий allowance: сколько spender может тратить токенов owner.
+    Запрос идёт через прокси, привязанный к owner.
     Возвращает в человеческих единицах. None при ошибке.
     """
-    info = get_token_info(token_address)
+    proxy = get_proxy_for_wallet(owner)
+
+    info = get_token_info(token_address, proxy=proxy)
     if info is None:
         return None
 
     try:
-        w3 = get_web3()
+        w3 = get_web3(proxy=proxy)
         token = w3.eth.contract(address=info["address"], abi=ERC20_ABI)
         raw = token.functions.allowance(
             Web3.to_checksum_address(owner),
@@ -264,7 +274,7 @@ def _notify_receipt(
     """Отправляет уведомление о результате и возвращает успех/неуспех."""
     if receipt is None:
         if notify:
-            notify_error(f"TX не подтверждена за {RECEIPT_TIMEOUT}с ({action_name})")
+            notify_error(f"TX не подтверждена за {RECEIPT_TIMEOUT}c ({action_name})")
         return False
 
     if receipt.get("status") == 1:
@@ -323,7 +333,7 @@ def approve(
             notify_error(f"Кошелёк не найден: {owner_label_or_address}")
         return None
 
-    # 1b. Прокси для кошелька
+    # Прокси для кошелька
     proxy = get_proxy_for_wallet(owner)
     w3 = get_web3(proxy=proxy)
 
@@ -346,7 +356,10 @@ def approve(
 
     # Проверяем текущий allowance
     current = get_allowance(owner, spender, token_address)
-    target_amount = amount if amount is not None else float(MAX_UINT256 / 10**info["decimals"])
+    target_amount = (
+        amount if amount is not None
+        else float(MAX_UINT256 / 10 ** info["decimals"])
+    )
 
     if current is not None and current >= target_amount:
         log.info(f"Allowance уже достаточен: {current:.4f} {info['symbol']}")
@@ -374,7 +387,7 @@ def approve(
         "from": owner,
         "nonce": nonce,
         "chainId": chain_id,
-        "gas": 100_000,  # approve обычно ~50k
+        "gas": 100_000,
     })
 
     eip1559 = _build_eip1559_fees(w3)
@@ -395,7 +408,7 @@ def approve(
 
     if notify:
         notify_money(
-            f"✍️ Approve отправлен\n"
+            f"📤 Approve отправлен\n"
             f"Токен: {info['symbol']}\n"
             f"Сумма: {amount_str}\n"
             f"tx: {tx_hash_hex[:20]}..."
@@ -433,7 +446,7 @@ def transfer_token(
             notify_error(f"Кошелёк не найден: {from_label_or_address}")
         return None
 
-    # 1b. Прокси для кошелька
+    # Прокси для кошелька
     proxy = get_proxy_for_wallet(from_addr)
     w3 = get_web3(proxy=proxy)
 
