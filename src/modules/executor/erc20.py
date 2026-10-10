@@ -9,7 +9,8 @@ src/modules/executor/erc20.py
     - approve(spender, token, amount)     — разрешить тратить токены
     - transfer_token(token, to, amount)   — отправить токены
 
-Все транзакции подписываются приватным ключом из БД (расшифровка Fernet).
+Все транзакции подписываются приватным ключом из БД (расшифровка Fernet)
+и логируются в таблицу Transaction (см. src.core.tx_logger).
 
 Использование:
     from src.modules.executor.erc20 import get_token_balance, approve
@@ -29,6 +30,7 @@ from src.core.notifier import notify_error, notify_money, notify_success
 from src.core.proxy import get_proxy_for_wallet
 from src.core.rpc import get_web3
 from src.core.safe_tx import safe_send
+from src.core.tx_logger import log_transaction, update_transaction_status
 
 log = get_logger(__name__)
 
@@ -271,8 +273,15 @@ def _notify_receipt(
     action_name: str,
     notify: bool,
 ) -> bool:
-    """Отправляет уведомление о результате и возвращает успех/неуспех."""
+    """
+    Отправляет уведомление о результате, обновляет статус в БД
+    и возвращает успех/неуспех.
+
+    ВАЖНО: gas в БД пишется в MATIC (поле gas_usd временно хранит MATIC,
+    сконвертируем в USD в analytics/pnl.py по курсу).
+    """
     if receipt is None:
+        update_transaction_status(tx_hash_hex, status="failed")
         if notify:
             notify_error(f"TX не подтверждена за {RECEIPT_TIMEOUT}c ({action_name})")
         return False
@@ -281,6 +290,14 @@ def _notify_receipt(
         gas_used = receipt.get("gasUsed", 0)
         eff_price = receipt.get("effectiveGasPrice", 0)
         fee_matic = float(Web3.from_wei(gas_used * eff_price, "ether"))
+
+        # в БД пока пишем MATIC вместо USD (конвертируем в /profit)
+        update_transaction_status(
+            tx_hash_hex,
+            status="success",
+            gas_usd=fee_matic,
+        )
+
         log.success(f"{action_name} OK. Комиссия: {fee_matic:.6f} MATIC")
         if notify:
             notify_success(
@@ -290,6 +307,7 @@ def _notify_receipt(
             )
         return True
     else:
+        update_transaction_status(tx_hash_hex, status="failed")
         log.error(f"{action_name} провалена: {tx_hash_hex}")
         if notify:
             notify_error(f"❌ {action_name} провалена: {tx_hash_hex[:20]}...")
@@ -406,6 +424,16 @@ def approve(
     if tx_hash_hex is None:
         return None
 
+    # Логируем в БД (status=pending; обновится в _notify_receipt)
+    log_transaction(
+        wallet_address=owner,
+        tx_hash=tx_hash_hex,
+        tx_type="approve",
+        token_to=info["symbol"],
+        amount_to=amount,
+        chain="polygon",
+    )
+
     if notify:
         notify_money(
             f"📤 Approve отправлен\n"
@@ -496,6 +524,16 @@ def transfer_token(
     )
     if tx_hash_hex is None:
         return None
+
+    # Логируем в БД
+    log_transaction(
+        wallet_address=from_addr,
+        tx_hash=tx_hash_hex,
+        tx_type="transfer",
+        token_from=info["symbol"],
+        amount_from=amount,
+        chain="polygon",
+    )
 
     if notify:
         notify_money(
