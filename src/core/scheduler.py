@@ -3,11 +3,14 @@ src/core/scheduler.py
 Планировщик периодических задач через APScheduler.
 
 Задачи:
-    - Каждые N часов — сканировать DeFiLlama на новые аирдроп-кандидаты
-    - Каждые 24 часа — обновлять балансы кошельков
-    - Каждый час — пинговать RPC (защита от простоя)
-    - Каждые 6 часов — сканировать Galxe
-    - Каждый час (окно 10–22 МСК) — авто-свап (см. auto_swap.py)
+    - Каждые 6ч — сканировать DeFiLlama
+    - Каждые 24ч — обновлять балансы кошельков
+    - Каждый час — пинговать RPC
+    - Каждые 5 мин — heartbeat
+    - Каждые 6ч — сканировать Galxe
+    - Каждый час (окно 10–22 МСК) — авто-свап
+    - 09:00 МСК — утренний отчёт /today
+    - 22:30 МСК — вечерний отчёт /profit
 
 Запуск:
     python -m src.core.scheduler
@@ -24,6 +27,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from src.core.auto_swap import auto_swap_job
 from src.core.config import settings
+from src.core.daily_reports import job_daily_profit, job_daily_today
 from src.core.galxe_jobs import job_scan_galxe
 from src.core.heartbeat import write_heartbeat
 from src.core.logger import get_logger
@@ -47,10 +51,7 @@ HEARTBEAT_INTERVAL_MINUTES = 5
 # --- Задачи ---
 
 def job_scan_airdrops() -> None:
-    """
-    Сканирует DeFiLlama на кандидатов.
-    Отправляет топ-5 в Telegram (если есть результат).
-    """
+    """Сканирует DeFiLlama на кандидатов, отправляет топ-5 в TG."""
     log.info("🛰 [scheduler] Запуск авто-сканирования DeFiLlama...")
     try:
         from src.modules.scanner.defillama import scan_polygon_candidates
@@ -59,7 +60,7 @@ def job_scan_airdrops() -> None:
             min_tvl=500_000,
             max_tvl=500_000_000,
             limit=10,
-            notify=False,  # сами отправим — чтобы избежать дубля
+            notify=False,
         )
 
         if not results:
@@ -81,17 +82,12 @@ def job_scan_airdrops() -> None:
 
 
 def job_check_balances() -> None:
-    """
-    Обновляет балансы всех farming-кошельков.
-    Если у кошелька появились MATIC — присылает уведомление.
-    """
+    """Обновляет балансы farming-кошельков, уведомляет о низком газе."""
     log.info("💰 [scheduler] Проверка балансов кошельков...")
     try:
         from src.core.rpc import get_balance_matic
-        from src.modules.wallets.manager import (
-            get_all_wallets,
-            update_balance,
-        )
+        from src.core.proxy import get_proxy_for_wallet
+        from src.modules.wallets.manager import get_all_wallets, update_balance
 
         wallets = get_all_wallets()
         if not wallets:
@@ -103,12 +99,10 @@ def job_check_balances() -> None:
 
         for w in wallets:
             try:
-                from src.core.proxy import get_proxy_for_wallet
                 proxy = get_proxy_for_wallet(w.address)
                 bal = get_balance_matic(w.address, proxy=proxy)
                 update_balance(w.address, bal)
 
-                # Если баланс раньше был 0, а теперь есть — это важно
                 old_bal = float(w.balance_usd or 0.0)
                 if bal > 0 and old_bal == 0:
                     funded.append((w.label, bal))
@@ -135,16 +129,13 @@ def job_check_balances() -> None:
 
 
 def job_ping_rpc() -> None:
-    """
-    Проверяет, что активный RPC жив. Если нет — пробует переподключиться.
-    При смене endpoint'a — уведомление.
-    """
+    """Проверяет активный RPC, уведомляет о смене endpoint."""
     log.debug("[scheduler] Пинг RPC...")
     try:
         from src.core.rpc import get_active_rpc, get_web3
 
         old_rpc = get_active_rpc()
-        w3 = get_web3(force_reconnect=True)  # принудительно ищем живой
+        w3 = get_web3(force_reconnect=True)
         new_rpc = get_active_rpc()
 
         if not w3.is_connected():
@@ -167,10 +158,7 @@ def job_ping_rpc() -> None:
 # --- Оркестрация ---
 
 def _run_with_timeout(func: Callable[[], None], name: str) -> None:
-    """
-    Обёртка для запуска задач. Ловит все исключения,
-    чтобы одна упавшая задача не убила scheduler.
-    """
+    """Обёртка запуска задач — ловит все исключения."""
     started = datetime.now(timezone.utc)
     log.info(f"[scheduler] ▶ {name} начался")
     try:
@@ -200,7 +188,6 @@ def run_scheduler() -> None:
         f"rpc_ping={RPC_PING_INTERVAL_HOURS}ч"
     )
 
-    # Обработка SIGINT/SIGTERM (Ctrl+C, pm2 stop)
     signal.signal(signal.SIGINT, _graceful_shutdown)
     signal.signal(signal.SIGTERM, _graceful_shutdown)
 
@@ -214,7 +201,7 @@ def run_scheduler() -> None:
         name="DeFiLlama scan",
         max_instances=1,
         coalesce=True,
-        next_run_time=datetime.now(timezone.utc),  # запустить сразу при старте
+        next_run_time=datetime.now(timezone.utc),
     )
 
     # Задача 2: проверка балансов
@@ -237,7 +224,7 @@ def run_scheduler() -> None:
         coalesce=True,
     )
 
-    # Задача 4: heartbeat (для watchdog)
+    # Задача 4: heartbeat
     scheduler.add_job(
         write_heartbeat,
         trigger=IntervalTrigger(minutes=HEARTBEAT_INTERVAL_MINUTES),
@@ -258,12 +245,32 @@ def run_scheduler() -> None:
         coalesce=True,
     )
 
-    # Задача 6: авто-свап (окно 10:00–22:00 МСК = 07:00–19:00 UTC, кубик на каждый час)
+    # Задача 6: авто-свап (окно 07:00–18:00 UTC = 10:00–21:00 МСК)
     scheduler.add_job(
         lambda: _run_with_timeout(auto_swap_job, "auto_swap"),
         trigger=CronTrigger(hour="7-18", minute="0", jitter=1800),
         id="auto_swap",
         name="Auto swap",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Задача 7: утренний отчёт (06:00 UTC = 09:00 МСК)
+    scheduler.add_job(
+        lambda: _run_with_timeout(job_daily_today, "daily_today"),
+        trigger=CronTrigger(hour=6, minute=0),
+        id="daily_today",
+        name="Daily morning report",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Задача 8: вечерний отчёт (19:30 UTC = 22:30 МСК)
+    scheduler.add_job(
+        lambda: _run_with_timeout(job_daily_profit, "daily_profit"),
+        trigger=CronTrigger(hour=19, minute=30),
+        id="daily_profit",
+        name="Daily evening report",
         max_instances=1,
         coalesce=True,
     )
@@ -274,7 +281,9 @@ def run_scheduler() -> None:
         f"scan: каждые {SCAN_INTERVAL_HOURS}ч\n"
         f"balances: каждые {BALANCE_CHECK_INTERVAL_HOURS}ч\n"
         f"rpc: каждый час\n"
-        f"auto_swap: окно 10:00–22:00 МСК"
+        f"auto_swap: окно 10:00–22:00 МСК\n"
+        f"daily_today: 09:00 МСК\n"
+        f"daily_profit: 22:30 МСК"
     )
 
     try:
