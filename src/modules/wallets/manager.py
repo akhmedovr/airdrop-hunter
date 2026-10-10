@@ -9,9 +9,10 @@ from eth_account import Account
 from sqlalchemy import select
 from web3 import Web3
 
-from src.core.config import settings
 from src.core.database import Wallet, get_session
 from src.core.logger import get_logger
+from src.core.proxy import get_proxy_for_wallet
+from src.core.rpc import get_web3
 from src.modules.wallets.security import (
     decrypt_private_key,
     encrypt_private_key,
@@ -22,21 +23,21 @@ from src.modules.wallets.security import (
 log = get_logger(__name__)
 
 
-# =========================================================================
+# ============================================================
 # WEB3
-# =========================================================================
-def get_web3() -> Web3:
-    """Возвращает Web3-подключение к Polygon."""
-    w3 = Web3(Web3.HTTPProvider(settings.POLYGON_RPC_URL))
-    if not w3.is_connected():
-        log.warning(f"Не удалось подключиться к RPC: {settings.POLYGON_RPC_URL}")
-    return w3
-
+# ============================================================
+# Web3-подключение берётся из src.core.rpc — единая точка с
+# fallback между RPC и поддержкой per-wallet прокси.
+# Локальную реализацию здесь не держим, чтобы не палить IP сервера.
 
 def get_matic_balance(address: str) -> float:
-    """Возвращает баланс MATIC (нативного токена Polygon) в единицах."""
+    """Возвращает баланс MATIC (нативного токена Polygon).
+
+    Запрос идёт через прокси, привязанный к кошельку.
+    """
     try:
-        w3 = get_web3()
+        proxy = get_proxy_for_wallet(address)
+        w3 = get_web3(proxy=proxy)
         balance_wei = w3.eth.get_balance(Web3.to_checksum_address(address))
         return float(w3.from_wei(balance_wei, "ether"))
     except Exception as e:
@@ -44,13 +45,14 @@ def get_matic_balance(address: str) -> float:
         return 0.0
 
 
-# =========================================================================
+# ============================================================
 # ГЕНЕРАЦИЯ И ИМПОРТ
-# =========================================================================
+# ============================================================
+
 def generate_wallet(label: str = "farming", wallet_type: str = "farming") -> dict:
     """
     Генерирует новый кошелёк.
-    Возвращает dict с address и private_key (в открытом виде — только для показа пользователю!).
+    Возвращает dict c address и private_key (в открытом виде — только для показа пользователю!).
     """
     Account.enable_unaudited_hdwallet_features()
     acct = Account.create()
@@ -75,9 +77,10 @@ def import_wallet(private_key: str, label: str = "imported", wallet_type: str = 
     }
 
 
-# =========================================================================
+# ============================================================
 # СОХРАНЕНИЕ В БД
-# =========================================================================
+# ============================================================
+
 def save_wallet(
     address: str,
     private_key: str,
@@ -117,9 +120,10 @@ def save_wallet(
         return wallet
 
 
-# =========================================================================
+# ============================================================
 # ЗАГРУЗКА ИЗ БД
-# =========================================================================
+# ============================================================
+
 def get_all_wallets(wallet_type: Optional[str] = None) -> list[Wallet]:
     """Возвращает список кошельков (можно фильтровать по типу)."""
     with get_session() as session:
@@ -160,9 +164,10 @@ def update_balance(address: str, balance: float) -> None:
             session.commit()
 
 
-# =========================================================================
+# ============================================================
 # УТИЛИТЫ
-# =========================================================================
+# ============================================================
+
 def wallets_summary() -> dict:
     """Возвращает сводку по всем кошелькам."""
     wallets = get_all_wallets()
