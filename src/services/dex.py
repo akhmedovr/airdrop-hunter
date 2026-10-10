@@ -128,7 +128,12 @@ def get_quote(token_in, token_out, amount, from_address=None):
     }
 
 
-def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notify=True):
+def swap(from_label, token_in, token_out, amount, slippage=2.0, wait=True, notify=True):
+    """
+    Свап через KyberSwap.
+
+    slippage — в процентах (2.0 = 2%). Для мелких сумм поднимаем до 3%.
+    """
     from src.modules.wallets.manager import get_all_wallets, get_private_key
 
     from_address = None
@@ -193,7 +198,25 @@ def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notif
     tx_info = build_data["data"]
     router_address = Web3.to_checksum_address(tx_info["routerAddress"])
     calldata = tx_info["data"]
-    amount_in_raw = int(tx_info.get("amountIn", 0))
+
+    # === ФИКС: amountIn из build_data может отсутствовать.
+    # Берём его из routeSummary (там он всегда есть). ===
+    amount_in_raw = int(
+        tx_info.get("amountIn")
+        or quote["route_summary"].get("amountIn")
+        or 0
+    )
+    if amount_in_raw == 0:
+        log.error("KyberSwap: amountIn=0 — не могу собрать транзакцию")
+        if notify:
+            notify_error("KyberSwap: amountIn=0")
+        return None
+
+    log.debug(
+        f"swap: amount_in_raw={amount_in_raw}, "
+        f"native_in={_is_native(token_in)}, "
+        f"router={router_address}"
+    )
 
     nonce = w3.eth.get_transaction_count(from_address, "pending")
 
@@ -204,9 +227,8 @@ def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notif
         "value": amount_in_raw if _is_native(token_in) else 0,
         "nonce": nonce,
         "chainId": w3.eth.chain_id,
-        "gas": 300000,
+        "gas": 400000,
     }
-    tx["gas"] = int(tx["gas"] * 1.2)
 
     latest = w3.eth.get_block("latest")
     base_fee = latest.get("baseFeePerGas")
@@ -237,7 +259,6 @@ def swap(from_label, token_in, token_out, amount, slippage=1.0, wait=True, notif
     tx_hash_hex = tx_hash.hex()
     log.success("Swap TX: " + tx_hash_hex)
 
-    # Логируем в БД (status=pending; обновится после receipt)
     log_transaction(
         wallet_address=from_address,
         tx_hash=tx_hash_hex,
