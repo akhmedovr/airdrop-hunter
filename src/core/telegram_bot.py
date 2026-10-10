@@ -16,6 +16,7 @@ Telegram-бот для управления Airdrop Hunter.
     /today     — задачи на сегодня
     /done <id> — отметить задачу выполненной
     /progress  — общий прогресс по кампаниям
+    /profit    — отчёт о газе (за 7 дней или /profit N)
 
 Запуск:
     python -m src.core.telegram_bot
@@ -95,7 +96,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "<b>План задач:</b>\n"
         "/today — задачи на сегодня\n"
         "/done &lt;id&gt; — отметить задачу выполненной\n"
-        "/progress — общий прогресс по кампаниям"
+        "/progress — общий прогресс по кампаниям\n\n"
+        "<b>Аналитика:</b>\n"
+        "/profit [дней] — отчёт о газе (по умолчанию 7 дней)"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -332,6 +335,10 @@ def _register_handlers(app: Application) -> None:
     # Команды плана задач (/today, /done, /progress)
     from src.core.daily_cmds import register_handlers as register_daily_handlers
     register_daily_handlers(app)
+
+    # Аналитика (/profit)
+    from src.core.profit_cmds import register_handlers as register_profit_handlers
+    register_profit_handlers(app)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
