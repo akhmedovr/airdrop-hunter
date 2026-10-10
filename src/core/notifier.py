@@ -43,25 +43,45 @@ def is_notifier_ready() -> bool:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type((httpx.HTTPError,)),
+    retry=retry_if_exception_type((httpx.TransportError, httpx.TimeoutException)),
     reraise=False,
 )
 def _send_raw(text: str) -> bool:
     """
     Низкоуровневая отправка в Telegram.
-    Retry 3 раза с экспоненциальной задержкой при сетевых ошибках.
+
+    Сначала пробует с parse_mode=HTML (для <b>, <code> и т.д.).
+    Если Telegram вернул 400 (невалидный HTML) — отправляет как plain text.
+    Retry 3 раза только при сетевых ошибках (не при 4xx).
     """
     url = f"{TELEGRAM_API_BASE}/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
+
+    def _try_send(payload: dict) -> httpx.Response:
+        with httpx.Client(timeout=10.0) as client:
+            return client.post(url, json=payload)
+
+    # Попытка 1: с HTML-разметкой
+    payload_html = {
         "chat_id": settings.TELEGRAM_CHAT_ID,
         "text": text,
         "disable_web_page_preview": True,
+        "parse_mode": "HTML",
     }
+    resp = _try_send(payload_html)
 
-    with httpx.Client(timeout=10.0) as client:
-        response = client.post(url, json=payload)
-        response.raise_for_status()
-        data = response.json()
+    if resp.status_code == 400:
+        log.warning(
+            f"_send_raw: HTML отклонён ({resp.text[:120]}), пробую plain text"
+        )
+        payload_plain = {
+            "chat_id": settings.TELEGRAM_CHAT_ID,
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        resp = _try_send(payload_plain)
+
+    resp.raise_for_status()
+    data = resp.json()
 
     if not data.get("ok"):
         log.error(f"Telegram API ответил ошибкой: {data}")
@@ -77,27 +97,20 @@ def send_message(text: str, level: str = "info") -> bool:
     Args:
         text: текст сообщения
         level: info | success | warning | error | money | rocket | scan | task
-
-    Returns:
-        True если сообщение успешно ушло, False иначе.
     """
     if not is_notifier_ready():
-        log.warning("Notifier не настроен — пропускаю отправку")
+        log.warning(
+            f"Notifier не настроен, сообщение не отправлено: {text[:80]}"
+        )
         return False
 
     emoji = EMOJI.get(level, "")
-    formatted = f"{emoji} {text}" if emoji else text
+    full_text = f"{emoji} {text}" if emoji else text
 
-    try:
-        success = _send_raw(formatted)
-    except Exception as e:
-        log.error(f"Не удалось отправить в Telegram: {e}")
-        return False
+    success = _send_raw(full_text)
 
-    if success:
-        # Не логируем полный текст — только первые 50 символов
-        preview = text[:50] + ("..." if len(text) > 50 else "")
-        log.debug(f"Telegram отправлено [{level}]: {preview}")
+    preview = full_text[:100].replace("\n", " ")
+    log.debug(f"Telegram отправлено [{level}]: {preview}")
 
     return success
 
