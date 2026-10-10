@@ -6,6 +6,8 @@ src/core/scheduler.py
     - Каждые N часов — сканировать DeFiLlama на новые аирдроп-кандидаты
     - Каждые 24 часа — обновлять балансы кошельков
     - Каждый час — пинговать RPC (защита от простоя)
+    - Каждые 6 часов — сканировать Galxe
+    - Каждый час (окно 10–22 МСК) — авто-свап (см. auto_swap.py)
 
 Запуск:
     python -m src.core.scheduler
@@ -17,12 +19,14 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from src.core.auto_swap import auto_swap_job
 from src.core.config import settings
-from src.core.logger import get_logger
 from src.core.galxe_jobs import job_scan_galxe
 from src.core.heartbeat import write_heartbeat
+from src.core.logger import get_logger
 from src.core.notifier import (
     notify_error,
     notify_scan,
@@ -47,7 +51,7 @@ def job_scan_airdrops() -> None:
     Сканирует DeFiLlama на кандидатов.
     Отправляет топ-5 в Telegram (если есть результат).
     """
-    log.info("📡 [scheduler] Запуск авто-сканирования DeFiLlama...")
+    log.info("🛰 [scheduler] Запуск авто-сканирования DeFiLlama...")
     try:
         from src.modules.scanner.defillama import scan_polygon_candidates
 
@@ -120,10 +124,10 @@ def job_check_balances() -> None:
             for label, bal in funded:
                 lines.append(f"• {label}: {bal:.4f} MATIC")
             notify_success("\n".join(lines))
+
         if low_balance:
             for lbl, bl in low_balance:
                 notify_warning(f"⚠️ Низкий газ: {lbl} — {bl:.4f} POL")
-
 
     except Exception as e:
         log.exception("[scheduler] Ошибка в job_check_balances")
@@ -133,7 +137,7 @@ def job_check_balances() -> None:
 def job_ping_rpc() -> None:
     """
     Проверяет, что активный RPC жив. Если нет — пробует переподключиться.
-    При смене endpoint'а — уведомление.
+    При смене endpoint'a — уведомление.
     """
     log.debug("[scheduler] Пинг RPC...")
     try:
@@ -150,7 +154,7 @@ def job_ping_rpc() -> None:
 
         if old_rpc and new_rpc and old_rpc != new_rpc:
             log.warning(f"[scheduler] RPC сменился: {old_rpc} → {new_rpc}")
-            notify_warning(f"🔀 RPC сменён на: {new_rpc}")
+            notify_warning(f"🔄 RPC сменён на: {new_rpc}")
 
         block = w3.eth.block_number
         log.debug(f"[scheduler] RPC OK, блок #{block}")
@@ -187,7 +191,7 @@ def _graceful_shutdown(signum, frame) -> None:
 def run_scheduler() -> None:
     """Запускает BlockingScheduler со всеми задачами."""
     log.info("=" * 60)
-    log.info("🗓  Airdrop Hunter — Scheduler")
+    log.info("📅 Airdrop Hunter — Scheduler")
     log.info("=" * 60)
     log.info(f"Окружение: {settings.ENVIRONMENT}")
     log.info(
@@ -233,24 +237,18 @@ def run_scheduler() -> None:
         coalesce=True,
     )
 
-    log.success("Scheduler запущен. Ctrl+C для остановки.")
-    notify_success(
-        f"🗓 Scheduler запущен\n"
-        f"scan: каждые {SCAN_INTERVAL_HOURS}ч\n"
-        f"balances: каждые {BALANCE_CHECK_INTERVAL_HOURS}ч\n"
-        f"rpc: каждый час"
-    )
-
+    # Задача 4: heartbeat (для watchdog)
     scheduler.add_job(
         write_heartbeat,
         trigger=IntervalTrigger(minutes=HEARTBEAT_INTERVAL_MINUTES),
         id="heartbeat",
-        next_run_time=datetime.now(timezone.utc),
         name="Heartbeat write",
         max_instances=1,
         coalesce=True,
+        next_run_time=datetime.now(timezone.utc),
     )
 
+    # Задача 5: Galxe scan
     scheduler.add_job(
         job_scan_galxe,
         trigger=IntervalTrigger(hours=GALXE_SCAN_INTERVAL_HOURS),
@@ -258,6 +256,25 @@ def run_scheduler() -> None:
         name="Galxe scan",
         max_instances=1,
         coalesce=True,
+    )
+
+    # Задача 6: авто-свап (окно 10:00–22:00 МСК = 07:00–19:00 UTC, кубик на каждый час)
+    scheduler.add_job(
+        lambda: _run_with_timeout(auto_swap_job, "auto_swap"),
+        trigger=CronTrigger(hour="7-18", minute="0", jitter=1800),
+        id="auto_swap",
+        name="Auto swap",
+        max_instances=1,
+        coalesce=True,
+    )
+
+    log.success("Scheduler запущен. Ctrl+C для остановки.")
+    notify_success(
+        f"📅 Scheduler запущен\n"
+        f"scan: каждые {SCAN_INTERVAL_HOURS}ч\n"
+        f"balances: каждые {BALANCE_CHECK_INTERVAL_HOURS}ч\n"
+        f"rpc: каждый час\n"
+        f"auto_swap: окно 10:00–22:00 МСК"
     )
 
     try:
