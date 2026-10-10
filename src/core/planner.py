@@ -6,10 +6,10 @@ src/core/planner.py
 Бот знает какие кампании фармим, генерирует задачи, отслеживает прогресс.
 
 Модели БД:
-    Airdrop — кампания (name, status)
-    Task    — задача (description, task_type, status)
+    Airdrop — кампания (name, platform, url, status, score)
+    Task    — задача (description, task_type, status, completed_at)
 
-Команды в Telegram:
+Команды в Telegram (см. daily_cmds.py):
     /today    — показать pending задачи
     /done <id> — отметить задачу выполненной
     /progress — общий прогресс по кампаниям
@@ -36,7 +36,12 @@ log = get_logger(__name__)
 SEED_CAMPAIGNS: list[dict] = [
     {
         "name": "Polygon Warmup",
-        "status": "active",
+        "platform": "other",
+        "url": "https://polygon.technology/",
+        "description": "Прогрев farm-01 в сети Polygon: свапы, approve, активность",
+        "reward_estimate": "—",
+        "status": "in_progress",
+        "score": 5,
         "tasks": [
             ("Swap 0.3 POL → USDT через Kyber [farm-01]", "swap"),
             ("Follow @KyberNetwork в X", "social"),
@@ -47,7 +52,12 @@ SEED_CAMPAIGNS: list[dict] = [
     },
     {
         "name": "Galxe Social Starter",
-        "status": "active",
+        "platform": "galxe",
+        "url": "https://app.galxe.com/",
+        "description": "Стартовый фарм Galxe Points + Galxe Gold на farm-01",
+        "reward_estimate": "50 Points + 30 GG",
+        "status": "in_progress",
+        "score": 7,
         "tasks": [
             ("Зайти на Galxe через email", "social"),
             ("Пройти 1 квест с наградой Points", "social"),
@@ -74,13 +84,21 @@ def seed_campaigns() -> int:
         with get_session() as session:
             existing = session.execute(select(Airdrop)).scalars().all()
             if existing:
-                log.info(f"planner: БД уже содержит {len(existing)} кампаний, seed не нужен")
+                log.info(
+                    f"planner: БД уже содержит {len(existing)} кампаний, "
+                    f"seed не нужен"
+                )
                 return 0
 
             for camp in SEED_CAMPAIGNS:
                 airdrop = Airdrop(
                     name=camp["name"],
-                    status=camp["status"],
+                    platform=camp["platform"],
+                    url=camp["url"],
+                    description=camp.get("description"),
+                    reward_estimate=camp.get("reward_estimate"),
+                    status=camp.get("status", "new"),
+                    score=camp.get("score", 0),
                 )
                 session.add(airdrop)
                 session.flush()  # получаем airdrop.id
@@ -95,8 +113,10 @@ def seed_campaigns() -> int:
                 created += 1
 
             session.commit()
-            log.success(f"planner: засеяно {created} кампаний, "
-                        f"{sum(len(c['tasks']) for c in SEED_CAMPAIGNS)} задач")
+            log.success(
+                f"planner: засеяно {created} кампаний, "
+                f"{sum(len(c['tasks']) for c in SEED_CAMPAIGNS)} задач"
+            )
             return created
     except Exception as e:
         log.error(f"planner: ошибка seed: {e}")
@@ -139,15 +159,13 @@ def get_task_by_id(task_id: int) -> Optional[Task]:
 
 
 def get_progress() -> dict:
-    """
-    Сводка по всем кампаниям и задачам.
-    """
+    """Сводка по всем кампаниям и задачам."""
     try:
         with get_session() as session:
             campaigns = session.execute(select(Airdrop)).scalars().all()
             tasks = session.execute(select(Task)).scalars().all()
 
-            by_status = {"pending": 0, "completed": 0, "failed": 0}
+            by_status: dict[str, int] = {"pending": 0, "completed": 0, "failed": 0}
             for t in tasks:
                 by_status[t.status] = by_status.get(t.status, 0) + 1
 
@@ -161,7 +179,9 @@ def get_progress() -> dict:
                 c_done = sum(1 for t in c_tasks if t.status == "completed")
                 campaign_stats.append({
                     "name": c.name,
+                    "platform": c.platform,
                     "status": c.status,
+                    "score": c.score,
                     "total": len(c_tasks),
                     "done": c_done,
                 })
@@ -230,6 +250,15 @@ def mark_task_failed(task_id: int, error: str = "") -> bool:
 # ФОРМАТИРОВАНИЕ ДЛЯ TELEGRAM
 # ============================================================
 
+def _esc(text: str) -> str:
+    """Минимальное экранирование для HTML в Telegram."""
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
 def format_today(tasks: list[Task]) -> str:
     """Форматирует список задач на сегодня (HTML)."""
     if not tasks:
@@ -248,10 +277,10 @@ def format_today(tasks: list[Task]) -> str:
     lines = [f"☀️ <b>План на сегодня ({len(tasks)})</b>", ""]
     for t in tasks:
         icon = icons.get(t.task_type, "📌")
-        lines.append(f"{icon} <b>#{t.id}</b> — {t.description}")
+        lines.append(f"{icon} <b>#{t.id}</b> — {_esc(t.description)}")
         lines.append(f"    <i>тип: {t.task_type}</i>")
         lines.append("")
-    lines.append("Когда выполнишь — жми: <code>/done &lt;id&gt;</code>")
+    lines.append("Когда выполнишь — жми: <code>/done ID</code>")
     return "\n".join(lines)
 
 
@@ -288,7 +317,10 @@ def format_progress(stats: dict) -> str:
     lines.append("<b>По кампаниям:</b>")
     for c in stats.get("campaigns", []):
         c_pct = int(100 * c["done"] / c["total"]) if c["total"] else 0
-        lines.append(f"• {c['name']}: {c['done']}/{c['total']} ({c_pct}%)")
+        plat = c.get("platform", "other")
+        lines.append(
+            f"• [{plat}] {_esc(c['name'])}: {c['done']}/{c['total']} ({c_pct}%)"
+        )
 
     return "\n".join(lines)
 
