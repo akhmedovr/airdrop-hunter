@@ -6,13 +6,16 @@ Telegram-бот для управления Airdrop Hunter.
 (chat_id из .env), всё остальное игнорирует.
 
 Команды:
-    /start    — приветствие
-    /help     — список команд
-    /ping     — проверить, что бот жив
-    /status   — статус системы (RPC, кошельки, окружение)
-    /wallets  — список кошельков с балансами
-    /scan     — запустить сканер DeFiLlama вручную
-    /quests   — активные квесты Galxe
+    /start     — приветствие
+    /help      — список команд
+    /ping      — проверить, что бот жив
+    /status    — статус системы (RPC, кошельки, окружение)
+    /wallets   — список кошельков с балансами
+    /scan      — запустить сканер DeFiLlama вручную
+    /quests    — активные квесты Galxe
+    /today     — задачи на сегодня
+    /done <id> — отметить задачу выполненной
+    /progress  — общий прогресс по кампаниям
 
 Запуск:
     python -m src.core.telegram_bot
@@ -61,8 +64,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await _reject(update)
         return
     text = (
-        "🤖 <b>Airdrop Hunter</b>\n\n"
-        "Я управляю твоим ботом-охотником за аирдропами.\n"
+        "🦅 <b>Airdrop Hunter</b>\n\n"
+        "Я управляю твоим ботом-охотником за аirdrop'ами.\n\n"
         "Напиши /help — покажу, что умею."
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
@@ -73,7 +76,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await _reject(update)
         return
     text = (
-        "<b>📋 Доступные команды:</b>\n\n"
+        "<b>📖 Доступные команды:</b>\n\n"
         "<b>Система:</b>\n"
         "/ping — проверить, что бот жив\n"
         "/status — состояние системы\n"
@@ -85,10 +88,14 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/rename_wallet &lt;адрес&gt; &lt;метка&gt; — переименовать\n\n"
         "<b>Аирдропы:</b>\n"
         "/scan — запустить сканер DeFiLlama\n"
-        "/quests — активные квесты Galxe\n"
+        "/quests — активные квесты Galxe\n\n"
         "<b>Свапы:</b>\n"
         "/quote &lt;from&gt; &lt;to&gt; &lt;amt&gt; — показать курс\n"
-        "/swap &lt;from&gt; &lt;to&gt; &lt;amt&gt; — выполнить свап"
+        "/swap &lt;from&gt; &lt;to&gt; &lt;amt&gt; — выполнить свап\n\n"
+        "<b>План задач:</b>\n"
+        "/today — задачи на сегодня\n"
+        "/done &lt;id&gt; — отметить задачу выполненной\n"
+        "/progress — общий прогресс по кампаниям"
     )
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
@@ -161,7 +168,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     else:
         lines.append(f"✅ RPC: <code>{info['rpc_active']}</code>")
         lines.append(f"Блок: <code>{info['block']}</code>")
-        lines.append(f"Gas: <code>{info['gas_gwei']:.2f} Gwei</code>")
+        lines.append(f"Gas: <code>{info['gas_gwei']:.2f}</code> Gwei")
 
     lines.append("")
 
@@ -178,9 +185,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     proxies = info["proxies"]
     if isinstance(proxies, dict) and "total_configured" in proxies:
         labels = ", ".join(proxies.get("labels", []))
-        lines.append(f"🛡 Прокси: {proxies['total_configured']} ({labels})")
+        lines.append(f"🌐 Прокси: {proxies['total_configured']} ({labels})")
     else:
-        lines.append(f"🛡 Прокси: ошибка — {proxies}")
+        lines.append(f"🌐 Прокси: ошибка — {proxies}")
 
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
@@ -273,7 +280,7 @@ async def cmd_quests(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await _reject(update)
         return
 
-    await update.message.reply_text("🔍 Запрашиваю активные квесты Galxe...")
+    await update.message.reply_text("🎯 Запрашиваю активные квесты Galxe...")
 
     def _run() -> list[dict]:
         from src.modules.scanner.galxe import fetch_active_quests
@@ -312,6 +319,7 @@ def _register_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("wallets", cmd_wallets))
+
     app.add_handler(CommandHandler("scan", cmd_scan))
     app.add_handler(CommandHandler("quests", cmd_quests))
 
@@ -320,6 +328,10 @@ def _register_handlers(app: Application) -> None:
     register_wallet_handlers(app)
     from src.core.swap_cmds import register_swap_handlers
     register_swap_handlers(app)
+
+    # Команды плана задач (/today, /done, /progress)
+    from src.core.daily_cmds import register_handlers as register_daily_handlers
+    register_daily_handlers(app)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
