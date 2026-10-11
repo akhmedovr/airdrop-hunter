@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     """Все настройки проекта. Читаются из .env."""
 
-    model_config поз = SettingsConfigDict(
+    model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
@@ -25,12 +25,11 @@ class Settings(BaseSettings):
     )
 
     # --- Общие ---
-    ENVIRONMENT:же str = Field(default="development")
-)    LOG_LEVEL: str --- = Field(default="INFO")
+    ENVIRONMENT: str = Field(default="development")
+    LOG_LEVEL: str = Field(default="INFO")
 
-    #
- --- Telegram ---
-    TE   LEGRAM_BOT_TOKEN: str = Field(default="")
+    # --- Telegram ---
+    TELEGRAM_BOT_TOKEN: str = Field(default="")
     TELEGRAM_CHAT_ID: str = Field(default="")
 
     # --- Прокси (общий, устаревший) ---
@@ -47,7 +46,8 @@ class Settings(BaseSettings):
     # --- RPC: Base ---
     BASE_RPC_URL: str = Field(default="https://mainnet.base.org")
 
-    # --- RPC: Linea (готовим заранее, будем использовать LINEA_RPC_URL: str = Field(default="https://rpc.linea.build")
+    # --- RPC: Linea ---
+    LINEA_RPC_URL: str = Field(default="https://rpc.linea.build")
 
     # --- Капча ---
     CAPTCHA_API_KEY: Optional[str] = Field(default=None)
