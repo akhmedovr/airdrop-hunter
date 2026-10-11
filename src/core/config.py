@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     """Все настройки проекта. Читаются из .env."""
 
-    model_config = SettingsConfigDict(
+    model_config поз = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
@@ -25,11 +25,12 @@ class Settings(BaseSettings):
     )
 
     # --- Общие ---
-    ENVIRONMENT: str = Field(default="development")
-    LOG_LEVEL: str = Field(default="INFO")
+    ENVIRONMENT:же str = Field(default="development")
+)    LOG_LEVEL: str --- = Field(default="INFO")
 
-    # --- Telegram ---
-    TELEGRAM_BOT_TOKEN: str = Field(default="")
+    #
+ --- Telegram ---
+    TE   LEGRAM_BOT_TOKEN: str = Field(default="")
     TELEGRAM_CHAT_ID: str = Field(default="")
 
     # --- Прокси (общий, устаревший) ---
@@ -40,8 +41,13 @@ class Settings(BaseSettings):
     PROXY_FARM_02: Optional[str] = Field(default=None)
     PROXY_FARM_03: Optional[str] = Field(default=None)
 
-    # --- RPC ---
+    # --- RPC: Polygon ---
     POLYGON_RPC_URL: str = Field(default="https://polygon-rpc.com")
+
+    # --- RPC: Base ---
+    BASE_RPC_URL: str = Field(default="https://mainnet.base.org")
+
+    # --- RPC: Linea (готовим заранее, будем использовать LINEA_RPC_URL: str = Field(default="https://rpc.linea.build")
 
     # --- Капча ---
     CAPTCHA_API_KEY: Optional[str] = Field(default=None)
@@ -66,11 +72,11 @@ class Settings(BaseSettings):
             raise ValueError(f"LOG_LEVEL должен быть одним из: {allowed}")
         return v_upper
 
-    @field_validator("POLYGON_RPC_URL")
+    @field_validator("POLYGON_RPC_URL", "BASE_RPC_URL", "LINEA_RPC_URL")
     @classmethod
     def validate_rpc(cls, v: str) -> str:
         if not v.startswith("http"):
-            raise ValueError("POLYGON_RPC_URL должен начинаться с http:// или https://")
+            raise ValueError("RPC URL должен начинаться с http:// или https://")
         return v
 
     @field_validator("WALLET_ENCRYPTION_KEY")
