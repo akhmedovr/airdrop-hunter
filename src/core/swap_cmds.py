@@ -3,24 +3,11 @@ src/core/swap_cmds.py
 /quote и /swap команды для Telegram. Мультичейн.
 
 Routing:
-    - Base + ETH<->токен  → Aerodrome (главный DEX Base)
-    - Всё остальное       → KyberSwap (агрегатор)
+    - Base + ETH<->токен  -> Aerodrome (главный DEX Base)
+    - Все остальное       -> KyberSwap (агрегатор)
 
 Дополнительная команда:
-    /aero FROM TO AMOUNT  — принудительно через Aerodrome (Base)
-
-Использование:
-    /quote FROM TO AMOUNT [CHAIN]
-    /swap FROM TO AMOUNT [CHAIN]
-    /aero FROM TO AMOUNT
-
-Примеры:
-    /quote POL USDT 1.0
-    /quote USDC ETH 1 base
-    /swap ETH USDC 0.0002 base     ← пойдёт через Aerodrome
-    /swap USDC ETH 0.5 base         ← пойдёт через Aerodrome
-    /swap USDT POL 0.5 linea        ← пойдёт через Kyber
-    /aero ETH USDC 0.0002           ← принудительно Aerodrome
+    /aero FROM TO AMOUNT  - принудительно через Aerodrome (Base)
 """
 
 import asyncio
@@ -37,9 +24,12 @@ from src.modules.executor.erc20 import TOKENS
 log = get_logger(__name__)
 
 
-# ============================================================
-# Хелперы
-# ============================================================
+NATIVE_ALIASES = {
+    "polygon": ("MATIC", "POL", "NATIVE", "WMATIC"),
+    "base": ("ETH", "NATIVE", "WETH"),
+    "linea": ("ETH", "NATIVE", "WETH"),
+}
+
 
 def _is_owner(update: Update) -> bool:
     if not update.effective_chat:
@@ -62,25 +52,15 @@ def _resolve_chain(s: str) -> str:
 
 
 def _resolve_token(sym: str, chain: str = DEFAULT_CHAIN) -> str:
-    """
-    Символ → адрес контракта или 'native' (спец-метка).
-    """
     s = sym.upper().strip()
 
-    native_aliases = {
-        "polygon": ("MATIC", "POL", "NATIVE", "WMATIC"),
-        "base": ("ETH", "NATIVE", "WETH"),
-        "linea": ("ETH", "NATIVE", "WETH"),
-    }
-    if s in native_aliases.get(chain, ()):
+    if s in NATIVE_ALIASES.get(chain, ()):
         return "native"
 
     chain_tokens = TOKENS.get(chain, {})
     if s in chain_tokens:
         return chain_tokens[s]
 
-    if s.startswith("0X") and len(s) == 42:
-        return sym
     if s.startswith("0x") and len(s) == 42:
         return sym
 
@@ -91,28 +71,16 @@ def _resolve_token(sym: str, chain: str = DEFAULT_CHAIN) -> str:
 
 
 def _is_native_sym(sym: str, chain: str) -> bool:
-    """Проверяет является ли символ native для этой сети."""
-    s = sym.upper().strip()
-    native = {"polygon": ("MATIC", "POL", "NATIVE"), "base": ("ETH", "NATIVE", "WETH"), "linea": ("ETH", "NATIVE", "WETH")}
-    return s in native.get(chain, ())
+    return sym.upper().strip() in NATIVE_ALIASES.get(chain, ())
 
 
 def _use_aerodrome(chain: str, t_in_sym: str, t_out_sym: str) -> bool:
-    """
-    Использовать ли Aerodrome для этого свапа.
-    Да — только если chain=base И (один из токенов native, другой стейбл).
-    """
     if chain != "base":
         return False
     in_native = _is_native_sym(t_in_sym, chain)
     out_native = _is_native_sym(t_out_sym, chain)
-    # Aerodrome MVP поддерживает только native <-> токен
     return in_native != out_native
 
-
-# ============================================================
-# /quote
-# ============================================================
 
 async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_owner(update):
@@ -122,10 +90,7 @@ async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
     if len(args) < 3:
         await update.message.reply_text(
-            "Использование: <code>/quote FROM TO AMOUNT [CHAIN]</code>\n\n"
-            "Примеры:\n"
-            "<code>/quote POL USDT 1.0</code>\n"
-            "<code>/quote ETH USDC 0.0002 base</code>",
+            "Использование: <code>/quote FROM TO AMOUNT [CHAIN]</code>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -147,7 +112,9 @@ async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     use_aero = _use_aerodrome(chain, t_in_sym, t_out_sym)
     source = "Aerodrome" if use_aero else "KyberSwap"
-    await update.message.reply_text(f"Запрашиваю курс [{chain}] через {source}...")
+    await update.message.reply_text(
+        f"Запрашиваю курс [{chain}] через {source}..."
+    )
 
     try:
         t_in = _resolve_token(t_in_sym, chain=chain)
@@ -158,7 +125,6 @@ async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     def _run():
         from src.modules.wallets.manager import get_all_wallets
-
         wallets = get_all_wallets()
         if not wallets:
             return None
@@ -190,10 +156,6 @@ async def cmd_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(txt, parse_mode=ParseMode.HTML)
 
 
-# ============================================================
-# /swap (авто-роутинг)
-# ============================================================
-
 async def cmd_swap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_owner(update):
         await _reject(update)
@@ -202,11 +164,7 @@ async def cmd_swap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
     if len(args) < 3:
         await update.message.reply_text(
-            "Использование: <code>/swap FROM TO AMOUNT [CHAIN]</code>\n\n"
-            "Примеры:\n"
-            "<code>/swap POL USDC 0.5</code>\n"
-            "<code>/swap ETH USDC 0.0002 base</code> ← Aerodrome\n"
-            "<code>/swap USDC ETH 0.5 base</code>      ← Aerodrome",
+            "Использование: <code>/swap FROM TO AMOUNT [CHAIN]</code>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -243,7 +201,6 @@ async def cmd_swap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     def _run():
         from src.modules.wallets.manager import get_all_wallets
-
         wallets = get_all_wallets()
         if not wallets:
             return None
@@ -277,18 +234,14 @@ async def cmd_swap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tx = await asyncio.to_thread(_run)
     except Exception as e:
         log.exception("swap err")
-        await updateod.message.reply_text(f"Ошибка: {strrome(e)[:150]}")
-       (chain return
+        await update.message.reply_text(f"Ошибка: {str(e)[:150]}")
+        return
 
     if tx:
         await update.message.reply_text(f"Tx: {tx[:20]}...")
     else:
         await update.message.reply_text(f"Свап [{chain}] не выполнен")
 
-
-# ============================================================
-# /aero (принудительно Aerodrome)
-# ============================================================
 
 async def cmd_aero(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Принудительный свап через Aerodrome (Base)."""
@@ -299,9 +252,7 @@ async def cmd_aero(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args or []
     if len(args) < 3:
         await update.message.reply_text(
-            "Использование: <code>/aero FROM TO AMOUNT</code>\n\n"
-            "Всегда chain=base (Aerodrome только там).\n"
-            "Пример: <code>/aero ETH USDC 0.0002</code>",
+            "Использование: <code>/aero FROM TO AMOUNT</code>",
             parse_mode=ParseMode.HTML,
         )
         return
@@ -314,9 +265,11 @@ async def cmd_aero(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Сумма должна быть числом")
         return
 
-    if not (_is_native_sym(t_in_sym, "base") ^ _is_native_sym(t_out_sym, "base")):
+    in_native = _is_native_sym(t_in_sym, "base")
+    out_native = _is_native_sym(t_out_sym, "base")
+    if in_native == out_native:
         await update.message.reply_text(
-            "Aerodrome MVP поддерживает только ETH↔токен (не токен↔токен)"
+            "Aerodrome MVP: только ETH<->токен"
         )
         return
 
@@ -327,7 +280,6 @@ async def cmd_aero(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     def _run():
         from src.services.aerodrome import swap_aerodrome
         from src.modules.wallets.manager import get_all_wallets
-
         wallets = get_all_wallets()
         if not wallets:
             return None
@@ -354,10 +306,6 @@ async def cmd_aero(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         await update.message.reply_text("Aerodrome свап не выполнен")
 
-
-# ============================================================
-# Регистрация
-# ============================================================
 
 def register_swap_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("quote", cmd_quote))
