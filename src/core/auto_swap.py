@@ -1,18 +1,10 @@
 """
 src/core/auto_swap.py
-Авто-свапы по расписанию (см. DESIGN_AUTOSWAP.md). Мультичейн.
+Авто-свапы по расписанию. Мультичейн.
 
 Routing:
-    - Base + ETH<->токен -> Aerodrome (главный DEX Base)
-    - Всё остальное      -> KyberSwap (агрегатор)
-
-Параметры:
-    - 1 свап/день (максимум 2), окно 10:00-22:00 МСК = 07:00-19:00 UTC
-    - Кубик 30% на каждый час
-    - Lazy day 15% - весь день без активности
-    - Cooldown 4 часа
-    - Стоп при низком балансе native
-    - 3 провала подряд -> пауза 24 часа
+    - Base + ETH<->токен -> Aerodrome
+    - Остальное         -> KyberSwap
 """
 
 from __future__ import annotations
@@ -28,17 +20,17 @@ from sqlalchemy import desc, func, select
 from src.core.database import SessionLocal, Transaction, Wallet
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_warning
-from src.core.rpc import DEFAULT_CHAIN, get_balance_native, get_native_symbol
+from src.core.rpc import (
+    DEFAULT_CHAIN,
+    get_balance_native,
+    get_native_symbol,
+)
 from src.modules.executor.erc20 import TOKENS
 from src.services.dex import NATIVE_TOKEN, swap
 
 
 log = get_logger(__name__)
 
-
-# ============================================================
-# Константы
-# ============================================================
 
 STATE_FILE = Path("data/auto_swap_state.json")
 
@@ -53,14 +45,12 @@ DICE_CHANCE = 0.30
 WINDOW_START_UTC_HOUR = 7
 WINDOW_END_UTC_HOUR = 19
 
-# Минимальный баланс native для автосвапа (per chain)
 MIN_BALANCE_NATIVE = {
     "polygon": 5.0,
     "base": 0.0005,
     "linea": 0.0005,
 }
 
-# Диапазоны сумм (per chain)
 AMOUNT_RANGES = {
     "polygon": {
         ("POL", "USDT"): (1.0, 3.0),
@@ -84,7 +74,6 @@ AMOUNT_RANGES = {
     },
 }
 
-# Газ-буфер для native-свапов
 NATIVE_GAS_BUFFER = {
     "polygon": 1.0,
     "base": 0.00005,
@@ -92,28 +81,18 @@ NATIVE_GAS_BUFFER = {
 }
 
 
-# ============================================================
-# Хелперы
-# ============================================================
-
 def _native_sym(chain: str) -> str:
-    """'POL' или 'ETH' для chain."""
     s = get_native_symbol(chain)
     return "POL" if chain == "polygon" else s
 
 
 def _token_map(chain: str) -> dict:
-    """Маппинг символ -> адрес контракта (native -> псевдо-адрес)."""
     native_sym = _native_sym(chain)
     result = {native_sym: NATIVE_TOKEN}
     for sym, addr in TOKENS.get(chain, {}).items():
         result[sym] = addr
     return result
 
-
-# ============================================================
-# STATE
-# ============================================================
 
 def _load_state() -> dict:
     if not STATE_FILE.exists():
@@ -142,11 +121,12 @@ def _state_key(wallet_label: str, chain: str) -> str:
 def _get_wallet_state(wallet_label: str, chain: str) -> dict:
     state = _load_state()
     key = _state_key(wallet_label, chain)
-    return state.get(key, {
+    default = {
         "lazy_day_date": None,
         "is_lazy_day": False,
         "paused_until": None,
-    })
+    }
+    return state.get(key, default)
 
 
 def _update_wallet_state(wallet_label: str, chain: str, **kwargs) -> None:
@@ -161,10 +141,6 @@ def _update_wallet_state(wallet_label: str, chain: str, **kwargs) -> None:
     state[key].update(kwargs)
     _save_state(state)
 
-
-# ============================================================
-# Проверки из БД
-# ============================================================
 
 def _get_wallet(wallet_label: str) -> Optional[Wallet]:
     with SessionLocal() as s:
@@ -236,10 +212,6 @@ def _failed_streak(wallet_addr: str, chain: str) -> int:
     return streak
 
 
-# ============================================================
-# State-проверки
-# ============================================================
-
 def _is_paused(wallet_label: str, chain: str) -> bool:
     st = _get_wallet_state(wallet_label, chain)
     paused = st.get("paused_until")
@@ -275,14 +247,12 @@ def _check_lazy_day(wallet_label: str, chain: str) -> bool:
     return is_lazy
 
 
-# ============================================================
-# Выбор пары
-# ============================================================
-
 def _choose_pair(wallet_addr: str, chain: str, balance_native: float):
     """
-    Выбирает (sym_in, sym_out, amount) с учётом баланса.
-    None если нечего свапать.
+    Выбирает (sym_in, sym_out, amount).
+
+    Проверяем баланс >= lo (минимум диапазона), а не hi.
+    Иначе обратные пары не срабатывают, если стейбла меньше максимума.
     """
     from src.modules.executor.erc20 import get_token_balance
 
@@ -301,25 +271,49 @@ def _choose_pair(wallet_addr: str, chain: str, balance_native: float):
         except Exception:
             balances[sym] = 0.0
 
+    log.debug(f"auto_swap: balances [{chain}]: {balances}")
+
     ranges = AMOUNT_RANGES.get(chain, {})
     available = []
 
     for (sym_in, sym_out), (lo, hi) in ranges.items():
-        required = hi + gas_buffer if sym_in == native_sym else hi
-        if balances.get(sym_in, 0.0) >= required:
-            amount = round(random.uniform(lo, hi), 6)
-            if amount + (gas_buffer if sym_in == native_sym else 0.0) > balances[sym_in]:
-                continue
-            available.append((sym_in, sym_out, amount))
+        balance_avail = balances.get(sym_in, 0.0)
+        gas_needed = gas_buffer if sym_in == native_sym else 0.0
+        usable = balance_avail - gas_needed
+        if usable < lo:
+            continue
+        effective_hi = min(hi, usable)
+        if effective_hi < lo:
+            continue
+        amount = round(random.uniform(lo, effective_hi), 6)
+        available.append((sym_in, sym_out, amount))
 
     if not available:
         return None
-    return random.choice(available)
 
+    native_to_stable = [p for p in available if p[0] == native_sym]
+    stable_to_native = [p for p in available if p[1] == native_sym]
+    others = [p for p in available
+              if p[0] != native_sym and p[1] != native_sym]
 
-# ============================================================
-# Роутер свапа (Aerodrome для Base + ETH<->токен, иначе Kyber)
-# ============================================================
+    pool = []
+    weights = []
+    if native_to_stable:
+        pool.append(native_to_stable)
+        weights.append(0.6)
+    if stable_to_native:
+        pool.append(stable_to_native)
+        weights.append(0.4)
+    if others:
+        pool.append(others)
+        weights.append(0.2)
+
+    if not pool:
+        return None
+
+    chosen_pool = random.choices(pool, weights=weights, k=1)[0]
+    return random.choice(chosen_pool)
+
 
 def _do_swap(
     chain: str,
@@ -330,16 +324,13 @@ def _do_swap(
     token_out: str,
     amount: float,
 ) -> Optional[str]:
-    """
-    Роутер: Base + ETH<->токен -> Aerodrome. Иначе Kyber.
-    """
     if chain == "base":
         native_sym = _native_sym(chain)
         in_native = (sym_in == native_sym)
         out_native = (sym_out == native_sym)
         if in_native != out_native:
             from src.services.aerodrome import swap_aerodrome
-            log.info(f"auto_swap: routing через Aerodrome [{chain}]")
+            log.info(f"auto_swap: routing Aerodrome [{chain}]")
             return swap_aerodrome(
                 from_label=wallet_label,
                 token_in=sym_in,
@@ -350,7 +341,7 @@ def _do_swap(
                 notify=False,
             )
 
-    log.info(f"auto_swap: routing через KyberSwap [{chain}]")
+    log.info(f"auto_swap: routing KyberSwap [{chain}]")
     return swap(
         from_label=wallet_label,
         token_in=token_in,
@@ -363,16 +354,11 @@ def _do_swap(
     )
 
 
-# ============================================================
-# Основная функция
-# ============================================================
-
 def do_auto_swap(
     wallet_label: str = "farm-01",
     chain: str = DEFAULT_CHAIN,
     force: bool = False,
 ) -> Optional[str]:
-    """Один авто-свап в указанной сети."""
     native_sym = _native_sym(chain)
     log.info(f"auto_swap: старт {wallet_label} [{chain}] force={force}")
 
@@ -478,18 +464,11 @@ def do_auto_swap(
     return tx_hash
 
 
-# ============================================================
-# Джоб для scheduler
-# ============================================================
-
-# Сейчас активна только Polygon. Base/Linea — после пополнения ETH.
 ACTIVE_CHAINS_FOR_AUTOSWAP = ["polygon"]
-
 AUTOSWAP_WALLET = "farm-01"
 
 
 def auto_swap_job() -> None:
-    """Вызывается scheduler'ом каждый час (окно 07:00-19:00 UTC)."""
     now_utc = datetime.now(timezone.utc)
 
     if not (WINDOW_START_UTC_HOUR <= now_utc.hour < WINDOW_END_UTC_HOUR):
