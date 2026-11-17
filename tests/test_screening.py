@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
+from screening import classify_automation_fit, normalize_campaign_record, preserve_review_state, should_create_review_task
 
 
 class ScreeningTests(unittest.TestCase):
@@ -102,6 +102,48 @@ class ScreeningTests(unittest.TestCase):
         self.assertEqual(merged["reward_description"], "Verified raffle, not guaranteed")
         self.assertEqual(merged["ai_summary"], "Manual review details")
         self.assertEqual(merged["evidence"], [{"checked_at": "new"}])
+
+
+    def test_node_rewards_are_classified_as_setup_then_monitoring(self):
+        result = classify_automation_fit({
+            "title": "AIOZ DePIN node rewards",
+            "reward_description": "Run a node and provide storage and bandwidth for AIOZ rewards.",
+        })
+        self.assertEqual(result["mode"], "node_uptime")
+        self.assertEqual(result["user_action"], "initial_setup_then_monitoring")
+
+    def test_active_trading_is_low_automation_fit(self):
+        result = classify_automation_fit({
+            "title": "Perp DEX points",
+            "reward_description": "Points accrue from trading volume and liquidity.",
+        })
+        self.assertEqual(result["fit"], "low")
+        self.assertEqual(result["capital_mode"], "trading_or_liquidity_capital")
+
+    def test_manual_quests_are_low_automation_fit(self):
+        result = classify_automation_fit({
+            "title": "Season 3 daily quests",
+            "reward_description": "Daily check-in and social tasks.",
+        })
+        self.assertEqual(result["mode"], "manual_quests")
+
+    def test_holding_program_is_not_marked_as_no_risk(self):
+        result = classify_automation_fit({
+            "title": "Stablecoin points",
+            "reward_description": "Earn points from holding a stablecoin balance.",
+        })
+        self.assertEqual(result["mode"], "passive_holding_or_vault")
+        self.assertIn("peg", result["reason"])
+
+    def test_normalizer_attaches_automation_assessment_to_evidence(self):
+        normalized = normalize_campaign_record({
+            "title": "Validator node",
+            "reward_description": "Run a validator node.",
+            "evidence": [{"source": "official"}],
+        })
+        assessment = normalized["evidence"][0]["automation_assessment"]
+        self.assertEqual(assessment["mode"], "node_uptime")
+        self.assertIn("Automation fit (heuristic): medium", normalized["ai_summary"])
 
 
 if __name__ == "__main__":
