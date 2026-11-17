@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
+from screening import should_create_review_task
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -464,14 +465,21 @@ async def perform_scan(owner_id, token):
             review_tasks=[]
             for campaign in new_saved:
                 if campaign.get("id") in task_campaign_ids: continue
-                is_galxe=any(str(evidence.get("source") or "").startswith("Galxe") for evidence in (campaign.get("evidence") or []))
+                evidence=campaign.get("evidence") or []
+                source_name=str((evidence[0] if evidence else {}).get("source") or "")
+                # DeFiLlama protocol/TVL signals are watchlist entries, not reward tasks.
+                # Galxe tasks enter the queue only when the title signals a cash reward
+                # and does not advertise capital-intensive or hardware-dependent actions.
+                if not should_create_review_task(campaign, source_name):
+                    continue
+                is_galxe=source_name.startswith("Galxe")
                 note=("Учитывай закрытие Galxe Quest: участие до 5 декабря 2026, получение наград до 15 декабря 2026. " if is_galxe else "")
                 review_tasks.append({
                     "owner_id":owner_id,"campaign_id":campaign["id"],
-                    "title":"Проверить условия: "+str(campaign.get("title") or campaign.get("project_name") or "кампания")[:130],
-                    "description":note+"Проверить официальный сайт и правила, географические ограничения, KYC, anti-Sybil, сроки, тип награды и обязательные расходы. Не подключать кошелёк и не подписывать транзакции на этапе проверки.",
+                    "title":"Проверить денежную награду: "+str(campaign.get("title") or campaign.get("project_name") or "кампания")[:120],
+                    "description":note+"Это только кандидат с признаком денежной награды, а не подтверждённый доход. Проверить официальные правила, актуальный дедлайн, географию, KYC, anti-Sybil, вероятность/механику выплаты и обязательные расходы. Не вносить депозит, не торговать и не подписывать транзакции ради проверки.",
                     "task_url":campaign.get("official_rules_url") or campaign.get("url"),
-                    "status":"todo","requires_user_action":True,"priority":40,"estimated_minutes":8,
+                    "status":"todo","requires_user_action":True,"priority":65,"estimated_minutes":8,
                 })
             if review_tasks:
                 await db_insert("tasks",review_tasks,token)
