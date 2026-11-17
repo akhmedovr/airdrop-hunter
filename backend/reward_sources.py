@@ -108,7 +108,7 @@ def parse_defillama_rewards_html(html, checked_at=None, limit=120):
                 f"{description_cell['text'] or 'Not stated'}. "
                 f"Dates shown: {dates_cell['text'] or 'Not stated'}. "
                 "Third-party directory lead only; official rules, eligibility, "
-                "costs and current availability have not been independently verified."
+                "costs and current availability are not independently verified."
             )[:1800],
             "confidence": 0.25,
             "evidence": [{
