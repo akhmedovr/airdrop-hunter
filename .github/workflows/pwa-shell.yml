@@ -19,13 +19,14 @@ jobs:
           python-version: "3.11"
       - name: Check JavaScript syntax
         run: |
-          node --check web/app.js
-          node --check web/sw.js
+          node --check backend/web/app.js
+          node --check backend/web/sw.js
+          python -m compileall -q backend
       - name: Validate PWA manifest
-        run: python -m json.tool web/manifest.webmanifest > /dev/null
+        run: python -m json.tool backend/web/manifest.webmanifest > /dev/null
       - name: Check required PWA assets
         run: |
-          test -s web/index.html
+          test -s backend/web/index.html
           test -s web/styles.css
           test -s web/app.js
           test -s web/sw.js
