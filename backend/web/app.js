@@ -180,7 +180,8 @@ async function loadWallets() {
     }
     root.replaceChildren();
     items.forEach((item) => {
-      const balance=item.balance_status==="ok" ? "Баланс: "+item.native_balance+" "+item.balance_symbol : (item.balance_status==="unsupported" ? "Баланс этой сети пока не поддержан" : "Баланс временно недоступен");
+      const usd=item.balance_usd==null ? "" : " · ≈ "+formatMoney(item.balance_usd);
+      const balance=item.balance_status==="ok" ? "Баланс: "+item.native_balance+" "+item.balance_symbol+usd : (item.balance_status==="unsupported" ? "Баланс этой сети пока не поддержан" : "Баланс временно недоступен");
       root.append(recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение · " + balance, null));
     });
   } catch (error) {

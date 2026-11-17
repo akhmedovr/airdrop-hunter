@@ -285,13 +285,73 @@ async def read_wallet_balance(client, wallet):
         log.warning("Wallet balance read failed for %s: %s",wallet.get("id"),str(error)[:120])
         return {**wallet,"native_balance":None,"balance_symbol":NATIVE_SYMBOLS[chain],"balance_status":"unavailable"}
 
+async def fetch_native_prices(client):
+    try:
+        response=await client.get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:polygon-ecosystem-token")
+        response.raise_for_status()
+        return (response.json() or {}).get("coins") or {}
+    except Exception as error:
+        log.warning("Native token price lookup failed: %s",str(error)[:120])
+        return {}
+
 @app.get("/api/wallets")
 async def wallets(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    rows=await db_get("wallets",user["id"],"select=*&order=created_at.desc",authorization.split(" ",1)[1])
+    token=authorization.split(" ",1)[1]
+    rows=await db_get("wallets",user["id"],"select=*&order=created_at.desc",token)
     async with httpx.AsyncClient(timeout=15,follow_redirects=True) as client:
         items=await asyncio.gather(*(read_wallet_balance(client,row) for row in rows))
+        prices=await fetch_native_prices(client)
+    now=datetime.now(timezone.utc)
+    price_ids={"polygon":"coingecko:polygon-ecosystem-token"}
+    for chain in ("ethereum","base","arbitrum","optimism","linea","scroll"):
+        price_ids[chain]="coingecko:ethereum"
+    for item in items:
+        chain=str(item.get("chain") or "").lower()
+        price_data=prices.get(price_ids.get(chain) or "")
+        if item.get("balance_status")=="ok" and price_data and price_data.get("price") is not None:
+            item["balance_usd"]=round(float(item["native_balance"])*float(price_data["price"]),2)
+            item["price_confidence"]=price_data.get("confidence")
+        else:
+            item["balance_usd"]=None
+            item["price_confidence"]=None
+    try:
+        previous=await db_get("wallet_snapshots",user["id"],"select=wallet_id,captured_at&order=captured_at.desc&limit=200",token)
+        latest={}
+        for snapshot in previous:
+            latest.setdefault(snapshot["wallet_id"],snapshot.get("captured_at"))
+        snapshot_rows=[]
+        for item in items:
+            if item.get("balance_status")!="ok": continue
+            captured=latest.get(item["id"])
+            recent=False
+            if captured:
+                try:
+                    recent=(now-datetime.fromisoformat(captured.replace("Z","+00:00"))).total_seconds()<3600
+                except Exception:
+                    recent=False
+            if not recent:
+                chain=str(item.get("chain") or "").lower()
+                price_id=price_ids.get(chain)
+                price_data=prices.get(price_id or {}) or {}
+                snapshot_rows.append({
+                    "owner_id":user["id"],"wallet_id":item["id"],
+                    "native_balance":item["native_balance"],
+                    "token_balances":{"native_symbol":item["balance_symbol"],"price_usd":price_data.get("price"),"price_confidence":price_data.get("confidence")},
+                    "total_usd":item.get("balance_usd"),
+                    "captured_at":now.isoformat(),
+                })
+        if snapshot_rows:
+            await db_insert("wallet_snapshots",snapshot_rows,token)
+    except Exception:
+        log.exception("Could not save wallet balance snapshots")
     return {"items":items}
+
+@app.get("/api/wallets/{wallet_id}/history")
+async def wallet_history(wallet_id:str,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    rows=await db_get("wallet_snapshots",user["id"],f"select=*&wallet_id=eq.{wallet_id}&order=captured_at.desc&limit=30",authorization.split(" ",1)[1])
+    return {"items":rows}
 
 @app.get("/api/push/public-key")
 async def push_key():
