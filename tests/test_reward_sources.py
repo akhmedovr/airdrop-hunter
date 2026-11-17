@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from reward_sources import parse_defillama_rewards_html, parse_perp_programs
+from reward_sources import parse_defillama_rewards_html, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
 
 
 class RewardSourceParserTests(unittest.TestCase):
@@ -71,6 +71,25 @@ class RewardSourceParserTests(unittest.TestCase):
             payload, checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc)
         )
         self.assertEqual(rows, [])
+
+    def test_asentum_watch_requires_official_incentivized_testnet_and_allocation(self):
+        rows = parse_asentum_watch("<body>Incentivized Testnet is live</body>", "<body>Phase 3 Incentivized Testnet 60M ASE</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 1)
+        self.assertIn("60M ASE", rows[0]["reward_description"])
+        self.assertIn("eligibility", rows[0]["reward_description"])
+
+    def test_asentum_watch_rejects_missing_allocation(self):
+        self.assertEqual(parse_asentum_watch("<body>Incentivized Testnet live</body>", "<body>Phase 3 rewards</body>"), [])
+
+    def test_push_watch_is_not_a_guaranteed_reward(self):
+        rows = parse_push_season3_watch("<body>Season 3 Daily Check-In Spin</body>", "<body>Season 3 reward program</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 1)
+        self.assertIn("not published", rows[0]["reward_description"])
+
+    def test_flop_watch_requires_provisional_launch_date(self):
+        rows = parse_flop_testnet_watch("<body>Public testnet target 2026-11-24 validator requirements</body>", "<body>FLOP public testnet</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 1)
+        self.assertIn("No server rental", rows[0]["reward_description"])
 
 
 if __name__ == "__main__":

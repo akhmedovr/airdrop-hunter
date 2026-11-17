@@ -108,7 +108,7 @@ def parse_defillama_rewards_html(html, checked_at=None, limit=120):
                 f"{description_cell['text'] or 'Not stated'}. "
                 f"Dates shown: {dates_cell['text'] or 'Not stated'}. "
                 "Third-party directory lead only; official rules, eligibility, "
-                "costs and current availability have not been independently verified."
+                "costs and current availability are not independently verified."
             )[:1800],
             "confidence": 0.25,
             "evidence": [{
@@ -216,3 +216,141 @@ def parse_perp_programs(payload, checked_at=None, max_age_days=30):
             ),
         })
     return records
+
+
+class _VisibleTextParser(HTMLParser):
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.hidden = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self.hidden += 1
+
+    def handle_endtag(self, tag):
+        if tag.lower() in {"script", "style", "noscript", "svg"} and self.hidden:
+            self.hidden -= 1
+
+    def handle_data(self, data):
+        if not self.hidden and data and data.strip():
+            self.parts.append(data.strip())
+
+
+def _visible_text(html):
+    parser = _VisibleTextParser()
+    parser.feed(html or "")
+    return " ".join(" ".join(parser.parts).split())
+
+
+def parse_asentum_watch(homepage_html, growth_html, checked_at=None):
+    home = _visible_text(homepage_html).lower()
+    growth = _visible_text(growth_html).lower()
+    if not any(term in home for term in ("incentivized testnet", "incentivised testnet")):
+        return []
+    if not any(term in growth for term in ("60m", "60,000,000")):
+        return []
+    if "phase 3" not in growth and "phase 3" not in home:
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return [{
+        "title": "Asentum — incentivized validator testnet",
+        "project_name": "Asentum",
+        "url": "https://www.asentum.com/docs/investors/growth-fund",
+        "chain": "Asentum testnet",
+        "reward_description": (
+            "Official pages describe a 60M ASE (6% supply) Phase 3 incentivized-testnet operator allocation. "
+            "Personal payout, current phase qualification and Russian-resident eligibility are unconfirmed. "
+            "500 ASE is only the minimum self-bond; the committee cutoff can be higher. "
+            "No token purchase or VPS rental is authorized."
+        ),
+        "confidence": 0.45,
+        "evidence": [{
+            "source": "Asentum official watchlist",
+            "source_url": "https://www.asentum.com/roadmap",
+            "growth_fund_url": "https://www.asentum.com/docs/investors/growth-fund",
+            "checked_at": now.isoformat(),
+            "signals": ["incentivized testnet", "60M ASE allocation", "Phase 3"],
+        }],
+        "ai_summary": (
+            "Watchlist only. The roadmap describes the incentivized testnet as live, while the Growth Fund "
+            "labels the 60M ASE operator allocation Phase 3. Resolve this phase mismatch and obtain written "
+            "eligibility and payout clarification before validator setup."
+        ),
+        "anti_sybil_notes": (
+            "No location evasion, duplicate validators, fake activity or borrowed identity. "
+            "Never expose validator private keys. Audit infrastructure before installation."
+        ),
+    }]
+
+
+def parse_push_season3_watch(portal_html, blog_html, checked_at=None):
+    portal = _visible_text(portal_html).lower()
+    blog = _visible_text(blog_html).lower()
+    if "season 3" not in portal or not any(term in portal for term in ("daily check-in", "spin")):
+        return []
+    if "season 3" not in blog:
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return [{
+        "title": "Push Chain — Season 3 rewards",
+        "project_name": "Push Chain",
+        "url": "https://portal.push.org/rewards",
+        "chain": "Push Chain testnet",
+        "reward_description": (
+            "Official portal advertises Season 3, daily check-in/spins and app quests. "
+            "Exact Season 3 allocation, points conversion and individual payout are not published. "
+            "Free/manual watchlist only; exclude paid quests, prediction apps and deposits."
+        ),
+        "confidence": 0.35,
+        "evidence": [{
+            "source": "Push Chain official watchlist",
+            "source_url": "https://portal.push.org/rewards",
+            "blog_url": "https://push.org/blog/push-rewards-program/",
+            "checked_at": now.isoformat(),
+            "signals": ["Season 3", "daily check-in/spin"],
+        }],
+        "ai_summary": (
+            "An active campaign portal does not guarantee a token payout. Russia is not named in the reviewed "
+            "restricted-jurisdiction list, but this is not a legal guarantee; current terms and applicable law "
+            "must be checked before connecting an account."
+        ),
+        "anti_sybil_notes": (
+            "No fake social engagement, automated account farming, referral abuse or multi-accounting. "
+            "Do not automate user-facing quests unless an official API explicitly permits it."
+        ),
+    }]
+
+
+def parse_flop_testnet_watch(docs_html, testnet_html, checked_at=None):
+    docs = _visible_text(docs_html).lower()
+    testnet = _visible_text(testnet_html).lower()
+    if "testnet" not in docs or "validator" not in docs or "testnet" not in testnet:
+        return []
+    if not any(term in docs for term in ("2026-11-24", "november 24, 2026", "24 november 2026")):
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return [{
+        "title": "FLOP Network — validator testnet watch",
+        "project_name": "FLOP Network",
+        "url": "https://docs.flop.network/docs/testnet-and-timeline",
+        "chain": "FLOP testnet",
+        "reward_description": (
+            "Official documentation lists a provisional public-testnet target of 24 November 2026. "
+            "Validator requirements are hardware-intensive (provisionally 8+ cores, 64 GB RAM and 2–4 TB NVMe). "
+            "No server rental or paid compute is justified under the current RUB 5,000 budget."
+        ),
+        "confidence": 0.3,
+        "evidence": [{
+            "source": "FLOP Network official watchlist",
+            "source_url": "https://docs.flop.network/docs/testnet-and-timeline",
+            "testnet_url": "https://flop.finance/testnet/",
+            "checked_at": now.isoformat(),
+            "signals": ["provisional 2026-11-24 testnet target", "validator participation"],
+        }],
+        "ai_summary": (
+            "Future watch item, not yet actionable. Re-check actual public launch and final validator requirements "
+            "after the target date. No hardware rental or compute purchase."
+        ),
+        "anti_sybil_notes": "No artificial activity or duplicate identities. Do not purchase compute or rent hardware without approval.",
+    }]
