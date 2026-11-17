@@ -572,6 +572,7 @@ async def perform_scan(owner_id, token):
                  f"Asentum watch: {counts['Asentum Validator Watch']}; "
                  f"Push S3 watch: {counts['Push Chain Season 3 Watch']}; "
                  f"FLOP watch: {counts['FLOP Testnet Watch']}; "
+                 f"AIOZ DePIN: {counts['AIOZ DePIN Watch']}; "
                  f"source errors: {len(errors)}.")
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,
