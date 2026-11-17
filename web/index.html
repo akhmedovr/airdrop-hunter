@@ -22,12 +22,22 @@
         <span class="brand-copy"><strong>Airdrop Hunter</strong><small>Личная панель</small></span>
       </a>
       <div class="top-actions">
-        <button class="secondary-button install-button" id="installButton">Установить</button>
+        <button class="secondary-button install-button" id="installButton">Установить</button><button class="secondary-button" id="signOutButton" hidden>Выйти</button>
         <span class="connection" id="connection"><i></i> Проверка связи</span>
         <button class="icon-button" id="refreshButton" aria-label="Обновить данные" title="Обновить">↻</button>
       </div>
     </header>
 
+    <section class="auth-gate" id="authGate">
+      <div class="auth-card">
+        <div class="assistant-orb">AH</div>
+        <p class="eyebrow">ЗАКРЫТЫЙ ДОСТУП</p>
+        <h2>Вход в Airdrop Hunter</h2>
+        <p>Введи свой email. Мы отправим одноразовую ссылку для входа. Пароль не нужен.</p>
+        <form id="loginForm"><input id="loginEmail" type="email" autocomplete="email" placeholder="Твой email" required><button class="secondary-button" type="submit">Отправить ссылку</button></form>
+        <p id="authMessage" class="auth-message" aria-live="polite"></p>
+      </div>
+    </section>
     <main>
       <section class="welcome">
         <div>
@@ -118,6 +128,7 @@
     </nav>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
