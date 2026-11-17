@@ -419,8 +419,8 @@ async def perform_scan(owner_id, token):
     run_id=run_rows[0]["id"] if run_rows else None
     try:
         source_rows=await db_upsert("sources",[
-            {"owner_id":owner_id,"name":"DeFiLlama","source_type":"protocol_discovery","base_url":"https://defillama.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
-            {"owner_id":owner_id,"name":"Galxe","source_type":"campaign_discovery","base_url":"https://app.galxe.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"DeFiLlama","source_type":"api","base_url":"https://defillama.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"Galxe","source_type":"platform","base_url":"https://app.galxe.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
         ],"owner_id,name",token)
         source_ids={row["name"]:row["id"] for row in source_rows}
         results=await asyncio.gather(
