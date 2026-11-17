@@ -1,5 +1,8 @@
+import sys
 import unittest
+from pathlib import Path
 from datetime import datetime, timezone
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from reward_sources import parse_defillama_rewards_html, parse_perp_programs
 
 
