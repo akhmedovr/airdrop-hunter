@@ -192,7 +192,7 @@ async def fetch_galxe_campaigns():
 @app.on_event("startup")
 async def startup():
     if os.getenv("ENABLE_SCHEDULER","true").lower()=="true":
-        scheduler.add_job(scheduled_health_scan,"interval",minutes=int(os.getenv("SCAN_INTERVAL_MINUTES","360")),id="source-scan",replace_existing=True,max_instances=1)
+        scheduler.add_job(scheduled_health_scan,"interval",minutes=int(os.getenv("SCAN_INTERVAL_MINUTES","360")),next_run_time=datetime.now(timezone.utc),id="source-scan",replace_existing=True,max_instances=1)
         scheduler.start()
 
 @app.on_event("shutdown")
