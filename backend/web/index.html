@@ -86,25 +86,34 @@
       </section>
 
       <section class="view" id="view-opportunities">
-        <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><span class="muted-pill">Источники будут подключены</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Сканер ещё не подключён</h3><p>Здесь будут кампании из официальных источников, с проверкой доступности в России, KYC, сроков, расходов и условий награды.</p></article>
+        <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><button class="secondary-button" id="scanButton" type="button">Запустить сканирование</button></div>
+        <div id="opportunitiesList" class="record-list"><article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Пока нет результатов</h3><p>Запусти проверку публичных источников. Все найденные кампании будут помечены как непроверенные, пока не подтверждены условия и eligibility.</p></article></div>
       </section>
 
       <section class="view" id="view-tasks">
         <div class="section-heading"><div><p class="eyebrow">EXECUTION</p><h2>Задания</h2></div><span class="muted-pill">Требует проверки</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">☷</span><h3>Очередь заданий пуста</h3><p>AI будет составлять короткий план. Для действий от имени пользователя появится отдельное подтверждение.</p></article>
+        <div id="tasksList" class="record-list"><article class="panel empty-page"><span class="empty-icon large">☷</span><h3>Очередь заданий пуста</h3><p>Задания появятся после отдельной проверки условий кампаний. Неподтверждённые действия не попадут в план.</p></article></div>
       </section>
 
       <section class="view" id="view-wallets">
         <div class="section-heading"><div><p class="eyebrow">READ-ONLY</p><h2>Кошельки</h2></div><span class="security-tag">Только публичные данные</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">◇</span><h3>Кошельки не подключены</h3><p>Будут отображаться публичные адреса, балансы, история транзакций и комиссии. Seed-фразы и приватные ключи не нужны.</p></article>
+        <article class="panel">
+          <form id="walletForm" class="wallet-form">
+            <input id="walletLabel" type="text" maxlength="80" placeholder="Название, например farm-01" required>
+            <input id="walletAddress" type="text" maxlength="128" placeholder="Публичный адрес 0x…" autocapitalize="off" autocomplete="off" required>
+            <select id="walletChain" required><option value="Polygon">Polygon</option><option value="Ethereum">Ethereum</option><option value="Base">Base</option><option value="Arbitrum">Arbitrum</option><option value="Optimism">Optimism</option><option value="Linea">Linea</option><option value="Scroll">Scroll</option></select>
+            <button class="secondary-button" type="submit">Добавить публичный адрес</button>
+          </form>
+          <p class="form-note">Только публичные адреса. Seed-фразы и приватные ключи сюда не вводить.</p>
+        </article>
+        <div id="walletsList" class="record-list"><article class="panel empty-page"><span class="empty-icon large">◇</span><h3>Кошельки пока не добавлены</h3><p>Добавь публичный адрес для read-only мониторинга.</p></article></div>
       </section>
 
       <section class="view" id="view-notifications">
         <div class="section-heading"><div><p class="eyebrow">INBOX</p><h2>Уведомления</h2></div><button class="secondary-button" id="enablePush">Включить push</button></div>
         <article class="panel">
           <div class="notification-settings"><div><strong>Push на iPhone</strong><p>Для системных уведомлений добавь приложение на экран «Домой» и разреши уведомления.</p></div><span class="muted-pill" id="pushStatus">Не настроено</span></div>
-          <div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Важные кампании, дедлайны и результаты проверок будут сохраняться здесь. Telegram не используется.</p></div>
+          <div id="notificationsList" class="record-list"><div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Важные кампании, дедлайны и результаты проверок будут сохраняться здесь. Telegram не используется.</p></div></div>
         </article>
       </section>
 
