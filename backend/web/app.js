@@ -54,6 +54,73 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[char]));
+}
+function safeUrl(value) {
+  try {
+    const url = new URL(value);
+    return ["http:","https:"].includes(url.protocol) ? escapeHtml(url.href) : "#";
+  } catch (_) { return "#"; }
+}
+const statusLabels = {
+  discovered:"Найдено · не проверено", reviewed:"На проверке", eligible:"Доступно",
+  unknown:"Условия неизвестны", ineligible:"Не подходит", planned:"В плане",
+  in_progress:"В работе", completed:"Выполнено", claimable:"Можно получить",
+  claimed:"Получено", realized:"Результат учтён", rejected:"Отклонено", expired:"Истекло",
+  todo:"К выполнению", ready:"Готово", waiting_user:"Нужно твоё действие",
+  skipped:"Пропущено", blocked:"Заблокировано"
+};
+function renderOpportunities(items) {
+  const root=document.getElementById("opportunityList");
+  if (!items?.length) { root.innerHTML='<article class="panel empty-page"><h3>Кандидатов пока нет</h3><p>Нажми «Запустить сканирование». Новые записи будут помечены как непроверенные.</p></article>'; return; }
+  root.innerHTML=items.map(item=>`<article class="panel data-card">
+    <div class="data-card-head"><div><p class="eyebrow">${escapeHtml(item.chain || "Web3")}</p><h3>${escapeHtml(item.title || item.project_name || "Без названия")}</h3></div><span class="muted-pill">${escapeHtml(statusLabels[item.status] || item.status || "Статус неизвестен")}</span></div>
+    <p>${escapeHtml(item.reward_description || item.ai_summary || "Нужна проверка официальных условий.")}</p>
+    <div class="data-meta">Уверенность: ${item.confidence == null ? "не оценена" : Math.round(Number(item.confidence)*100)+"%"} · Расходы: ${formatMoney(item.cost_estimate_usd)}</div>
+    <a href="${safeUrl(item.url)}" target="_blank" rel="noopener noreferrer">Открыть источник ↗</a>
+  </article>`).join("");
+}
+function renderTasks(items) {
+  const root=document.getElementById("taskList");
+  const plan=document.getElementById("planList");
+  if (!items?.length) {
+    root.innerHTML='<article class="panel empty-page"><h3>Заданий пока нет</h3><p>Они появятся после проверки условий кампаний.</p></article>';
+    plan.className="empty-state"; plan.innerHTML='<span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>Сначала нужно подтвердить условия кампаний.</p>'; return;
+  }
+  root.innerHTML=items.map(item=>`<article class="panel data-card">
+    <div class="data-card-head"><h3>${escapeHtml(item.title || "Задание")}</h3><span class="muted-pill">${escapeHtml(statusLabels[item.status] || item.status)}</span></div>
+    <p>${escapeHtml(item.description || "Дополнительные инструкции пока не добавлены.")}</p>
+    ${item.due_at ? '<div class="data-meta">Срок: '+escapeHtml(new Date(item.due_at).toLocaleString("ru-RU"))+'</div>' : ""}
+    ${item.task_url ? '<a href="'+safeUrl(item.task_url)+'" target="_blank" rel="noopener noreferrer">Открыть задание ↗</a>' : ""}
+    ${["todo","ready","in_progress","waiting_user"].includes(item.status) ? '<div class="data-actions"><button class="secondary-button" data-task-complete="'+escapeHtml(item.id)+'" type="button">Отметить выполненным</button></div>' : ""}
+  </article>`).join("");
+  const planned=items.filter(item=>["todo","ready","in_progress","waiting_user"].includes(item.status)).slice(0,5);
+  plan.className=planned.length ? "data-list" : "empty-state";
+  plan.innerHTML=planned.length ? planned.map((item,i)=>'<article class="data-card"><div class="data-card-head"><strong>'+(i+1)+'. '+escapeHtml(item.title || "Задание")+'</strong><span class="muted-pill">'+escapeHtml(statusLabels[item.status] || item.status)+'</span></div></article>').join("") : '<strong>Все текущие задания закрыты</strong>';
+  root.querySelectorAll("[data-task-complete]").forEach(button=>button.addEventListener("click",async()=>{
+    button.disabled=true;
+    try { await request("/api/tasks/"+encodeURIComponent(button.dataset.taskComplete),{method:"PATCH",body:JSON.stringify({status:"completed"})}); await loadAppData(); showToast("Задание отмечено выполненным."); }
+    catch(error){button.disabled=false;showToast("Не удалось обновить задание: "+error.message);}
+  }));
+}
+function renderWallets(items) {
+  const root=document.getElementById("walletList");
+  if (!items?.length) {root.innerHTML='<article class="panel empty-page"><h3>Кошельки не подключены</h3><p>Добавь публичный адрес. Приватные ключи не нужны.</p></article>';return;}
+  root.innerHTML=items.map(item=>`<article class="panel data-card"><div class="data-card-head"><h3>${escapeHtml(item.label || "Кошелёк")}</h3><span class="muted-pill">${escapeHtml(item.chain || "EVM")}</span></div><p class="wallet-address">${escapeHtml(item.address)}</p></article>`).join("");
+}
+function renderNotifications(items) {
+  const root=document.getElementById("notificationList");
+  if (!items?.length) {root.innerHTML='<div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Новые события появятся здесь.</p></div>';return;}
+  root.innerHTML=items.map(item=>`<article class="panel data-card ${item.read_at ? "" : "unread"}"><div class="data-card-head"><h3>${escapeHtml(item.title || "Уведомление")}</h3><span class="muted-pill">${escapeHtml(item.category || "Событие")}</span></div><p>${escapeHtml(item.body || "")}</p><div class="data-meta">${item.created_at ? escapeHtml(new Date(item.created_at).toLocaleString("ru-RU")) : ""}</div>${item.read_at ? "" : '<button class="text-button" data-notification-read="'+escapeHtml(item.id)+'" type="button">Отметить прочитанным</button>'}</article>`).join("");
+  root.querySelectorAll("[data-notification-read]").forEach(button=>button.addEventListener("click",async()=>{
+    button.disabled=true;
+    try {await request("/api/notifications/"+encodeURIComponent(button.dataset.notificationRead)+"/read",{method:"PATCH"});await loadAppData();}
+    catch(error){button.disabled=false;showToast("Не удалось обновить уведомление: "+error.message);}
+  }));
+}
 async function loadAppData() {
   if (!authSession?.access_token) return;
   const connection = document.getElementById("connection");
@@ -62,19 +129,24 @@ async function loadAppData() {
     const health = await request("/api/health");
     connection.classList.add("online");
     connection.innerHTML = "<i></i> Сервер подключён";
-    status.textContent = health.status === "ok" ? "Система на связи" : "Сервер отвечает";
-    const dashboard = await request("/api/dashboard");
+    status.textContent = health.status === "ok" ? "API на связи · сканирование по запросу" : "Сервер отвечает";
+    const [dashboard, notifications, opportunities, tasks, wallets] = await Promise.all([
+      request("/api/dashboard"), request("/api/notifications"), request("/api/opportunities"),
+      request("/api/tasks"), request("/api/wallets")
+    ]);
     document.getElementById("metricCampaigns").textContent = dashboard.active_campaigns ?? "—";
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
     document.getElementById("metricClaimable").textContent = formatMoney(dashboard.claimable_rewards_usd);
     document.getElementById("metricPnl").textContent = formatMoney(dashboard.realized_pnl_usd);
-    const notifications = await request("/api/notifications");
-    const unread = Number(notifications.unread_count || 0);
-    document.getElementById("unreadCount").textContent = String(unread);
+    document.getElementById("unreadCount").textContent = String(Number(notifications.unread_count || 0));
+    renderOpportunities(opportunities.items || []);
+    renderTasks(tasks.items || []);
+    renderWallets(wallets.items || []);
+    renderNotifications(notifications.items || []);
   } catch (error) {
     connection.classList.remove("online");
-    connection.innerHTML = "<i></i> Сервер не подключён";
-    status.textContent = "Ожидает подключения сервера";
+    connection.innerHTML = "<i></i> Ошибка соединения";
+    status.textContent = "Не удалось загрузить данные: " + error.message;
   }
 }
 
@@ -111,6 +183,27 @@ async function enablePush() {
   }
 }
 
+document.getElementById("scanButton").addEventListener("click",async()=>{
+  const button=document.getElementById("scanButton"), label=document.getElementById("scanStatus");
+  button.disabled=true; label.textContent="Получаю список протоколов и сверяю кандидатов…";
+  try {
+    const result=await request("/api/agent/run-scan",{method:"POST"});
+    label.textContent="Проверено кандидатов: "+result.items_found+". Добавлено новых: "+result.candidates_added+". Награды не подтверждены.";
+    await loadAppData();
+    showToast("Сканирование завершено.");
+  } catch(error) {label.textContent="Сканирование не выполнено: "+error.message;showToast("Ошибка сканирования.");}
+  finally {button.disabled=false;}
+});
+document.getElementById("walletForm").addEventListener("submit",async(event)=>{
+  event.preventDefault();
+  const button=event.currentTarget.querySelector('button[type="submit"]'); button.disabled=true;
+  try {
+    const payload={label:document.getElementById("walletLabel").value.trim(),address:document.getElementById("walletAddress").value.trim(),chain:document.getElementById("walletChain").value};
+    await request("/api/wallets",{method:"POST",body:JSON.stringify(payload)});
+    event.currentTarget.reset(); await loadAppData(); showToast("Публичный адрес добавлен.");
+  } catch(error) {showToast("Не удалось добавить адрес: "+error.message);}
+  finally {button.disabled=false;}
+});
 document.getElementById("enablePush").addEventListener("click", enablePush);
 document.getElementById("refreshButton").addEventListener("click", () => {
   loadAppData();
