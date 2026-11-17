@@ -309,8 +309,7 @@ def parse_push_season3_watch(portal_html, blog_html, checked_at=None):
     portal_raw = (portal_html or "").lower()
     blog = _visible_text(blog_html).lower()
     season_live = "season 3" in portal or "push rewards s3" in portal_raw or "push chain rewards s3" in portal_raw
-    quest_signals = any(term in portal or term in portal_raw for term in ("daily check-in", "spin to win", "1 free spin"))
-    if not season_live or not quest_signals:
+    if not season_live:
         return []
     if "season 3" not in blog and "push rewards program" not in blog:
         return []
