@@ -8,7 +8,7 @@ from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
-from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
+from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -191,6 +191,13 @@ async def fetch_flop_testnet_watch():
         responses=await asyncio.gather(*(client.get(url) for url in urls))
         for response in responses: response.raise_for_status()
         return parse_flop_testnet_watch(responses[0].text,responses[1].text)
+
+async def fetch_aioz_depin_watch():
+    urls=("https://docs.aioz.network/aioz-depin/depin-app/depin-cli","https://docs.aioz.network/aioz-depin/depin-app/gui-cli")
+    async with httpx.AsyncClient(timeout=25,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
+        responses=await asyncio.gather(*(client.get(url) for url in urls))
+        for response in responses: response.raise_for_status()
+        return parse_aioz_depin_watch(responses[0].text,responses[1].text)
 
 async def fetch_galxe_campaigns():
     endpoint="https://graphigo.prd.galaxy.eco/query"
@@ -472,9 +479,10 @@ async def perform_scan(owner_id, token):
             {"owner_id":owner_id,"name":"Asentum Validator Watch","source_type":"platform","base_url":"https://www.asentum.com/roadmap","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
             {"owner_id":owner_id,"name":"Push Chain Season 3 Watch","source_type":"platform","base_url":"https://portal.push.org/rewards","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
             {"owner_id":owner_id,"name":"FLOP Testnet Watch","source_type":"platform","base_url":"https://docs.flop.network/docs/testnet-and-timeline","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"AIOZ DePIN Watch","source_type":"platform","base_url":"https://docs.aioz.network/aioz-depin/depin-app/depin-cli","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
         ],"owner_id,name",token)
         source_ids={row["name"]:row["id"] for row in source_rows}
-        source_names=("DeFiLlama","Galxe","DeFiLlama Rewards","PerpDEX Points Index","Asentum Validator Watch","Push Chain Season 3 Watch","FLOP Testnet Watch")
+        source_names=("DeFiLlama","Galxe","DeFiLlama Rewards","PerpDEX Points Index","Asentum Validator Watch","Push Chain Season 3 Watch","FLOP Testnet Watch","AIOZ DePIN Watch")
         results=await asyncio.gather(
             fetch_defillama_candidates(),
             fetch_galxe_campaigns(),
@@ -483,6 +491,7 @@ async def perform_scan(owner_id, token):
             fetch_asentum_watch(),
             fetch_push_season3_watch(),
             fetch_flop_testnet_watch(),
+            fetch_aioz_depin_watch(),
             return_exceptions=True,
         )
         errors=[]
