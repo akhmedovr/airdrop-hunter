@@ -192,6 +192,17 @@ async def shutdown():
 async def health():
     return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"scanner_mode":"manual","database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"push_configured":bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),"time":datetime.now(timezone.utc).isoformat()}
 
+@app.post("/api/profile/bootstrap")
+async def profile_bootstrap(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    token=authorization.split(" ",1)[1]
+    await db_upsert("profiles",{
+        "id":user["id"],
+        "display_name":str((user.get("user_metadata") or {}).get("name") or "Airdrop Hunter Owner")[:100],
+        "updated_at":datetime.now(timezone.utc).isoformat(),
+    },"id",token)
+    return {"ok":True}
+
 @app.get("/api/dashboard")
 async def dashboard(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization); uid=user["id"]
@@ -326,18 +337,10 @@ async def send_push_to_owner(owner_id, title, body, target_url="/", owner_token=
     results=await asyncio.gather(*(deliver(item) for item in subscriptions))
     return sum(1 for result in results if result)
 
-async def scheduled_health_scan():
-    # Worker heartbeat only until official-source connectors and service credentials are configured.
-    log.info("Scheduled scan heartbeat: connectors not yet configured; no wallet or transaction actions are performed.")
-
-@app.post("/api/agent/run-scan")
-async def run_scan(authorization: str|None=Header(default=None)):
-    user=await auth_user(authorization)
-    token=authorization.split(" ",1)[1]
-    owner_id=user["id"]
+async def perform_scan(owner_id, token):
     run_rows=await db_insert("agent_runs",{
         "owner_id":owner_id,
-        "job_type":"manual_scan",
+        "job_type":"scheduled_scan" if token==SUPABASE_SERVICE_ROLE_KEY else "manual_scan",
         "status":"running",
         "started_at":datetime.now(timezone.utc).isoformat(),
         "summary":"Проверяю публичные источники DeFiLlama и Galxe.",
@@ -382,7 +385,6 @@ async def run_scan(authorization: str|None=Header(default=None)):
             key=str(record.get("url") or "").rstrip("/").lower()
             if key: unique_records[key]=record
         records=list(unique_records.values())
-        new_records=[record for record in records if str(record.get("url") or "").rstrip("/").lower() not in existing_urls]
         saved=await db_upsert("campaigns",records,"owner_id,url",token) if records else []
         new_saved=[row for row in saved if str(row.get("url") or "").rstrip("/").lower() not in existing_urls]
         if new_saved:
@@ -391,7 +393,7 @@ async def run_scan(authorization: str|None=Header(default=None)):
             review_tasks=[]
             for campaign in new_saved:
                 if campaign.get("id") in task_campaign_ids: continue
-                is_galxe=any(evidence.get("source","").startswith("Galxe") for evidence in (campaign.get("evidence") or []))
+                is_galxe=any(str(evidence.get("source") or "").startswith("Galxe") for evidence in (campaign.get("evidence") or []))
                 note=("Учитывай закрытие Galxe Quest: участие до 5 декабря 2026, получение наград до 15 декабря 2026. " if is_galxe else "")
                 review_tasks.append({
                     "owner_id":owner_id,"campaign_id":campaign["id"],
@@ -416,39 +418,51 @@ async def run_scan(authorization: str|None=Header(default=None)):
             "metadata":{"source_counts":counts,"errors":errors,"new_candidates":len(new_saved)},
         },token)
         if new_saved:
+            title="Новые кандидаты и задачи проверки"
+            body=summary+" Награды и eligibility не подтверждены; сначала проверь условия."
             await db_insert("notifications",{
-                "owner_id":owner_id,
-                "title":"Новые кандидаты и задачи проверки",
-                "body":summary+" Награды и eligibility не подтверждены; сначала проверь условия.",
-                "category":"discovery",
+                "owner_id":owner_id,"title":title,"body":body,"category":"discovery",
             },token)
-            await send_push_to_owner(
-                owner_id,
-                "Найдены новые кандидаты",
-                summary+" Проверь условия в приложении.",
-                "/",
-                token,
-            )
+            await send_push_to_owner(owner_id,title,body,"/",token)
         return {
-            "accepted":True,
-            "status":final_status,
-            "items_found":len(saved),
-            "new_candidates":len(new_saved),
-            "source_counts":counts,
-            "errors":errors,
-            "message":summary,
+            "accepted":True,"status":final_status,"items_found":len(saved),
+            "new_candidates":len(new_saved),"source_counts":counts,
+            "errors":errors,"message":summary,
         }
     except Exception as error:
         if run_id:
             try:
                 await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
-                    "status":"failed",
-                    "finished_at":datetime.now(timezone.utc).isoformat(),
+                    "status":"failed","finished_at":datetime.now(timezone.utc).isoformat(),
                     "error":str(error)[:500],
                 },token)
             except Exception:
                 log.exception("Could not mark scan run as failed")
         raise
+
+async def scheduled_health_scan():
+    if not SUPABASE_SERVICE_ROLE_KEY or not OWNER_EMAIL:
+        log.info("Scheduled scan skipped: server key or owner email is not configured.")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response=await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles?select=id&limit=1",
+                headers=db_headers(SUPABASE_SERVICE_ROLE_KEY),
+            )
+            response.raise_for_status()
+            profiles=response.json()
+        if not profiles:
+            log.info("Scheduled scan skipped: owner profile has not been initialized by a login yet.")
+            return
+        await perform_scan(profiles[0]["id"],SUPABASE_SERVICE_ROLE_KEY)
+    except Exception:
+        log.exception("Scheduled discovery scan failed")
+
+@app.post("/api/agent/run-scan")
+async def run_scan(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    return await perform_scan(user["id"],authorization.split(" ",1)[1])
 
 class WalletInput(BaseModel):
     label:str
