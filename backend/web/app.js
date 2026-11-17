@@ -129,7 +129,7 @@ async function loadAppData() {
     const health = await request("/api/health");
     connection.classList.add("online");
     connection.innerHTML = "<i></i> Сервер подключён";
-    status.textContent = health.status === "ok" ? "API на связи · " + (health.scheduler_running ? "планировщик активен" : "планировщик выключен") : "Сервер отвечает";
+    status.textContent = health.status === "ok" ? "API на связи · сканирование по запросу" : "Сервер отвечает";
     const [dashboard, notifications, opportunities, tasks, wallets] = await Promise.all([
       request("/api/dashboard"), request("/api/notifications"), request("/api/opportunities"),
       request("/api/tasks"), request("/api/wallets")
