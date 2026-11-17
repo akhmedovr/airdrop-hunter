@@ -49,6 +49,28 @@ class ScreeningTests(unittest.TestCase):
             "Unknown source",
         ))
 
+    def test_unreviewed_discovery_data_is_refreshed(self):
+        incoming = {
+            "status": "discovered",
+            "reward_description": "Fresh API evidence",
+            "ai_summary": "Fresh summary",
+        }
+        existing = {
+            "status": "discovered",
+            "reward_description": "Stale generic description",
+            "ai_summary": "Stale summary",
+        }
+        merged = preserve_review_state(incoming, existing)
+        self.assertEqual(merged["reward_description"], "Fresh API evidence")
+        self.assertEqual(merged["ai_summary"], "Fresh summary")
+
+    def test_expired_campaign_can_be_reactivated_by_live_discovery(self):
+        incoming = {"status": "discovered", "reward_description": "Currently active"}
+        existing = {"status": "expired", "reward_description": "Old expired state"}
+        merged = preserve_review_state(incoming, existing)
+        self.assertEqual(merged["status"], "discovered")
+        self.assertEqual(merged["reward_description"], "Currently active")
+
     def test_manual_review_state_survives_new_discovery_data(self):
         incoming = {
             "url": "https://example.org/quest",
