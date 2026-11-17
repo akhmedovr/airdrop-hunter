@@ -18,6 +18,7 @@ from typing import Optional
 from sqlalchemy import desc, func, select
 
 from src.core.database import SessionLocal, Transaction, Wallet
+from src.core.config import settings
 from src.core.logger import get_logger
 from src.core.notifier import notify_error, notify_warning
 from src.core.rpc import (
@@ -359,6 +360,12 @@ def do_auto_swap(
     chain: str = DEFAULT_CHAIN,
     force: bool = False,
 ) -> Optional[str]:
+    if not settings.AUTONOMOUS_TRANSACTIONS_ENABLED:
+        log.warning(
+            "auto_swap: заблокирован — AUTONOMOUS_TRANSACTIONS_ENABLED=false"
+        )
+        return None
+
     native_sym = _native_sym(chain)
     log.info(f"auto_swap: старт {wallet_label} [{chain}] force={force}")
 
