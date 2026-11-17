@@ -29,15 +29,14 @@ async def auth_user(authorization: str|None):
     return r.json()
 
 def db_headers(owner_token: str|None=None):
-    key=SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
-    h={"apikey":key,"Content-Type":"application/json"}
-    if owner_token: h["Authorization"]=f"Bearer {owner_token}"
-    else: h["Authorization"]=f"Bearer {key}"
+    h={"apikey":SUPABASE_ANON_KEY,"Content-Type":"application/json"}
+    bearer=owner_token or SUPABASE_SERVICE_ROLE_KEY
+    if bearer: h["Authorization"]=f"Bearer {bearer}"
     return h
 
-async def db_get(table,owner_id,query=""):
+async def db_get(table,owner_id,query="",owner_token: str|None=None):
     if not SUPABASE_URL or not SUPABASE_ANON_KEY: raise HTTPException(503,"Database is not configured")
-    headers=db_headers()
+    headers=db_headers(owner_token)
     async with httpx.AsyncClient(timeout=20) as c:
         r=await c.get(f"{SUPABASE_URL}/rest/v1/{table}?owner_id=eq.{owner_id}&{query}",headers=headers)
     if r.status_code>=400: raise HTTPException(502,f"Database read failed: {r.text[:250]}")
@@ -67,31 +66,31 @@ async def health():
 @app.get("/api/dashboard")
 async def dashboard(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization); uid=user["id"]
-    campaigns=await db_get("campaigns",uid,"select=id,status")
-    tasks=await db_get("tasks",uid,"select=id,status,due_at")
-    rewards=await db_get("rewards",uid,"select=estimated_usd,realized_usd,status")
-    notifications=await db_get("notifications",uid,"select=id,read_at")
+    campaigns=await db_get("campaigns",uid,"select=id,status",authorization.split(" ",1)[1])
+    tasks=await db_get("tasks",uid,"select=id,status,due_at",authorization.split(" ",1)[1])
+    rewards=await db_get("rewards",uid,"select=estimated_usd,realized_usd,status",authorization.split(" ",1)[1])
+    notifications=await db_get("notifications",uid,"select=id,read_at",authorization.split(" ",1)[1])
     return {"active_campaigns":sum(1 for x in campaigns if x["status"] not in ("expired","rejected","realized")),"tasks_today":sum(1 for x in tasks if x["status"] in ("todo","ready","in_progress","waiting_user")),"claimable_rewards_usd":round(sum(float(x.get("estimated_usd") or 0) for x in rewards if x["status"]=="claimable"),2),"realized_pnl_usd":round(sum(float(x.get("realized_usd") or 0) for x in rewards if x["status"]=="realized"),2),"unread_notifications":sum(1 for x in notifications if not x["read_at"])}
 
 @app.get("/api/notifications")
 async def notifications(authorization: str|None=Header(default=None)):
-    user=await auth_user(authorization); rows=await db_get("notifications",user["id"],"select=*&order=created_at.desc&limit=100")
+    user=await auth_user(authorization); rows=await db_get("notifications",user["id"],"select=*&order=created_at.desc&limit=100",authorization.split(" ",1)[1])
     return {"items":rows,"unread_count":sum(1 for x in rows if not x["read_at"])}
 
 @app.get("/api/opportunities")
 async def opportunities(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    return {"items":await db_get("campaigns",user["id"],"select=*&order=discovered_at.desc&limit=100")}
+    return {"items":await db_get("campaigns",user["id"],"select=*&order=discovered_at.desc&limit=100",authorization.split(" ",1)[1])}
 
 @app.get("/api/tasks")
 async def tasks(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    return {"items":await db_get("tasks",user["id"],"select=*&order=priority.desc,due_at.asc&limit=100")}
+    return {"items":await db_get("tasks",user["id"],"select=*&order=priority.desc,due_at.asc&limit=100",authorization.split(" ",1)[1])}
 
 @app.get("/api/wallets")
 async def wallets(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    return {"items":await db_get("wallets",user["id"],"select=*&order=created_at.desc")}
+    return {"items":await db_get("wallets",user["id"],"select=*&order=created_at.desc",authorization.split(" ",1)[1])}
 
 @app.get("/api/push/public-key")
 async def push_key():
