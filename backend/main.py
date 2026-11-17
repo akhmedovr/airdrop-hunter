@@ -140,7 +140,7 @@ async def shutdown():
 
 @app.get("/api/health")
 async def health():
-    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"time":datetime.now(timezone.utc).isoformat()}
+    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"scanner_mode":"manual","database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"push_configured":bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),"time":datetime.now(timezone.utc).isoformat()}
 
 @app.get("/api/dashboard")
 async def dashboard(authorization: str|None=Header(default=None)):
