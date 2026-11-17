@@ -75,7 +75,7 @@
         <div class="content-grid">
           <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">ПЛАН</p><h3>На сегодня</h3></div><span class="muted-pill">AI-планирование</span></div>
-            <div class="empty-state"><span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>После подключения сканера AI отберёт задания по доходности, затратам, срокам и доступности.</p></div>
+            <div id="planList" class="empty-state"><span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>Сначала нужно подтвердить условия кампаний. План не будет строиться на неподтверждённых наградах.</p></div>
           </article>
           <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">МОНИТОРИНГ</p><h3>Последние события</h3></div><button class="text-button" data-go="notifications">Все уведомления →</button></div>
@@ -86,25 +86,34 @@
       </section>
 
       <section class="view" id="view-opportunities">
-        <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><span class="muted-pill">Источники будут подключены</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Сканер ещё не подключён</h3><p>Здесь будут кампании из официальных источников, с проверкой доступности в России, KYC, сроков, расходов и условий награды.</p></article>
+        <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><button class="secondary-button" id="scanButton" type="button">Запустить сканирование</button></div>
+        <p class="section-hint" id="scanStatus">Кандидаты будут сохранены отдельно от подтверждённых возможностей. Наличие награды автоматически не предполагается.</p>
+        <div id="opportunityList" class="data-list"><article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Пока нет кандидатов</h3><p>Запусти сканирование, чтобы собрать первые проекты для проверки.</p></article></div>
       </section>
 
       <section class="view" id="view-tasks">
-        <div class="section-heading"><div><p class="eyebrow">EXECUTION</p><h2>Задания</h2></div><span class="muted-pill">Требует проверки</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">☷</span><h3>Очередь заданий пуста</h3><p>AI будет составлять короткий план. Для действий от имени пользователя появится отдельное подтверждение.</p></article>
+        <div class="section-heading"><div><p class="eyebrow">EXECUTION</p><h2>Задания</h2></div><span class="muted-pill">Все действия под контролем</span></div>
+        <div id="taskList" class="data-list"><article class="panel empty-page"><span class="empty-icon large">☷</span><h3>Очередь заданий пуста</h3><p>Задания появятся после проверки кампаний. Социальные и on-chain действия не выполняются автоматически.</p></article></div>
       </section>
 
       <section class="view" id="view-wallets">
         <div class="section-heading"><div><p class="eyebrow">READ-ONLY</p><h2>Кошельки</h2></div><span class="security-tag">Только публичные данные</span></div>
-        <article class="panel empty-page"><span class="empty-icon large">◇</span><h3>Кошельки не подключены</h3><p>Будут отображаться публичные адреса, балансы, история транзакций и комиссии. Seed-фразы и приватные ключи не нужны.</p></article>
+        <article class="panel wallet-add-panel"><h3>Добавить адрес</h3><p>Вставляй только публичный адрес. Seed-фраза и приватный ключ не требуются и не должны вводиться в приложение.</p>
+          <form id="walletForm" class="wallet-form">
+            <input id="walletLabel" type="text" maxlength="80" placeholder="Название, например Main" required>
+            <input id="walletAddress" type="text" maxlength="128" placeholder="0x… публичный адрес" required autocapitalize="off" spellcheck="false">
+            <select id="walletChain"><option value="Polygon">Polygon</option><option value="Ethereum">Ethereum</option><option value="Arbitrum">Arbitrum</option><option value="Optimism">Optimism</option><option value="Base">Base</option></select>
+            <button class="secondary-button" type="submit">Добавить кошелёк</button>
+          </form>
+        </article>
+        <div id="walletList" class="data-list"><article class="panel empty-page"><span class="empty-icon large">◇</span><h3>Кошельки не подключены</h3><p>Добавь публичные адреса для read-only мониторинга.</p></article></div>
       </section>
 
       <section class="view" id="view-notifications">
         <div class="section-heading"><div><p class="eyebrow">INBOX</p><h2>Уведомления</h2></div><button class="secondary-button" id="enablePush">Включить push</button></div>
         <article class="panel">
           <div class="notification-settings"><div><strong>Push на iPhone</strong><p>Для системных уведомлений добавь приложение на экран «Домой» и разреши уведомления.</p></div><span class="muted-pill" id="pushStatus">Не настроено</span></div>
-          <div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Важные кампании, дедлайны и результаты проверок будут сохраняться здесь. Telegram не используется.</p></div>
+          <div id="notificationList" class="data-list"><div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Важные кампании, дедлайны и результаты проверок будут сохраняться здесь. Telegram не используется.</p></div></div>
         </article>
       </section>
 
