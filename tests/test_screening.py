@@ -72,12 +72,12 @@ class ScreeningTests(unittest.TestCase):
         self.assertEqual(merged["reward_description"], "Fresh API evidence")
         self.assertEqual(merged["ai_summary"], "Fresh summary")
 
-    def test_expired_campaign_can_be_reactivated_by_live_discovery(self):
-        incoming = {"status": "discovered", "reward_description": "Currently active"}
-        existing = {"status": "expired", "reward_description": "Old expired state"}
+    def test_expired_campaign_state_is_not_overwritten_by_stale_api_status(self):
+        incoming = {"status": "discovered", "reward_description": "Generic API text"}
+        existing = {"status": "expired", "reward_description": "Page confirmed ended"}
         merged = preserve_review_state(incoming, existing)
-        self.assertEqual(merged["status"], "discovered")
-        self.assertEqual(merged["reward_description"], "Currently active")
+        self.assertEqual(merged["status"], "expired")
+        self.assertEqual(merged["reward_description"], "Page confirmed ended")
 
     def test_manual_review_state_survives_new_discovery_data(self):
         incoming = {
