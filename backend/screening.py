@@ -23,3 +23,29 @@ def should_create_review_task(campaign: dict, source_name: str) -> bool:
         return False
 
     return bool(_CASH_RE.search(title) and _REWARD_RE.search(title))
+
+
+
+_REVIEW_FIELDS = (
+    "status",
+    "eligibility",
+    "deadline",
+    "official_rules_url",
+    "confidence",
+    "estimated_reward_usd",
+    "region_restrictions",
+    "kyc_required",
+    "anti_sybil_notes",
+    "cost_estimate_usd",
+    "reward_description",
+    "ai_summary",
+)
+
+
+def preserve_review_state(incoming: dict, existing: dict) -> dict:
+    """Refresh discovery evidence without overwriting a user's reviewed campaign state."""
+    merged = dict(incoming or {})
+    for field in _REVIEW_FIELDS:
+        if field in (existing or {}):
+            merged[field] = existing[field]
+    return merged
