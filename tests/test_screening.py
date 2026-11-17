@@ -54,7 +54,7 @@ class ScreeningTests(unittest.TestCase):
         galxe = normalize_campaign_record({"title": "B", "source_id": "2", "deadline": None})
         self.assertEqual(set(defillama), set(galxe))
         self.assertEqual(defillama["region_restrictions"], [])
-        self.assertIsNone(defillama["cost_estimate_usd"])
+        self.assertEqual(defillama["cost_estimate_usd"], 0)
         self.assertIsNone(defillama["estimated_reward_usd"])
 
     def test_economic_gate_fails_closed_when_reward_cost_and_eligibility_unknown(self):
@@ -77,11 +77,25 @@ class ScreeningTests(unittest.TestCase):
             "official_rules_url": "https://example.org/terms",
             "estimated_reward_usd": 10,
             "cost_estimate_usd": 2,
+            "evidence": [{"cost_estimate_verified": True}],
             "required_capital_usd": 0,
         })
         self.assertEqual(gate["gate"], "eligible_for_human_approval")
         self.assertEqual(gate["estimated_net_reward_usd"], 8)
         self.assertEqual(gate["blockers"], [])
+
+    def test_legacy_zero_cost_default_is_not_treated_as_verified_zero(self):
+        gate = assess_economic_gate({
+            "title": "Storage node",
+            "reward_description": "Provide storage uptime",
+            "eligibility": "eligible",
+            "official_rules_url": "https://example.org/terms",
+            "estimated_reward_usd": 10,
+            "cost_estimate_usd": 0,
+            "required_capital_usd": 0,
+        })
+        self.assertIsNone(gate["estimated_cost_usd"])
+        self.assertIn("total_cost_unknown", gate["blockers"])
 
     def test_trading_overrides_node_keyword_in_automation_classifier(self):
         result = classify_automation_fit({
