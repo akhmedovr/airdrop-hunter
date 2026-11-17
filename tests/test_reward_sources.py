@@ -91,6 +91,16 @@ class RewardSourceParserTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertIn("No server rental", rows[0]["reward_description"])
 
+    def test_asentum_ecosystem_xp_is_separate_and_not_cash(self):
+        rows = parse_asentum_watch("<body>Incentivized Testnet is live</body>", "<body>Phase 3 Incentivized Testnet 60M ASE</body>", "<body>Every partner earns XP 18 XP actions 16 daily quests</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 2)
+        self.assertIn("individual XP-to-ASE conversion", rows[1]["reward_description"])
+
+    def test_push_watch_detects_client_rendered_season_metadata(self):
+        rows = parse_push_season3_watch("<html><head><meta property='og:title' content='Push Rewards S3'></head><body>1 FREE Spin/Day</body></html>", "<body>Push Rewards Program</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 1)
+        self.assertIn("Exact Season 3 allocation", rows[0]["reward_description"])
+
 
 if __name__ == "__main__":
     unittest.main()

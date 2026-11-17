@@ -243,7 +243,7 @@ def _visible_text(html):
     return " ".join(" ".join(parser.parts).split())
 
 
-def parse_asentum_watch(homepage_html, growth_html, checked_at=None):
+def parse_asentum_watch(homepage_html, growth_html, ecosystem_html='', checked_at=None):
     home = _visible_text(homepage_html).lower()
     growth = _visible_text(growth_html).lower()
     if not any(term in home for term in ("incentivized testnet", "incentivised testnet")):
@@ -253,7 +253,7 @@ def parse_asentum_watch(homepage_html, growth_html, checked_at=None):
     if "phase 3" not in growth and "phase 3" not in home:
         return []
     now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
-    return [{
+    records = [{
         "title": "Asentum — incentivized validator testnet",
         "project_name": "Asentum",
         "url": "https://www.asentum.com/docs/investors/growth-fund",
@@ -282,14 +282,36 @@ def parse_asentum_watch(homepage_html, growth_html, checked_at=None):
             "Never expose validator private keys. Audit infrastructure before installation."
         ),
     }]
+    ecosystem = _visible_text(ecosystem_html).lower()
+    if "xp actions" in ecosystem and "daily quests" in ecosystem and "every partner" in ecosystem:
+        records.append({
+            "title": "Asentum — ecosystem XP and daily quests",
+            "project_name": "Asentum",
+            "url": "https://www.asentum.com/ecosystem",
+            "chain": "Asentum testnet",
+            "reward_description": (
+                "Official ecosystem page lists 6 partners, 18 XP actions and 16 daily quests. "
+                "Users receive 3 daily quests (check-in plus two drawn from the pool); actions are verified on-chain. "
+                "XP contributes to the airdrop, but the individual XP-to-ASE conversion and personal payout are not published. "
+                "Some actions involve swaps, liquidity, token launches, prediction markets or games. "
+                "Manual/testnet activity only; do not use real funds or paid boosts."
+            ),
+            "confidence": 0.55,
+            "evidence": [{"source": "Asentum official ecosystem", "source_url": "https://www.asentum.com/ecosystem", "checked_at": now.isoformat(), "signals": ["6 ecosystem partners", "18 XP actions", "16 daily quests", "3 daily quests per account"]}],
+            "ai_summary": "XP activity requires a linked native wallet and on-chain signatures. Use only no-cost testnet actions; exclude betting, gambling, liquidity and any activity requiring real ASE purchases.",
+            "anti_sybil_notes": "One genuine account and wallet only. No automation of fake engagement, multi-accounting or repeat transactions beyond published daily caps.",
+        })
+    return records
 
 
 def parse_push_season3_watch(portal_html, blog_html, checked_at=None):
     portal = _visible_text(portal_html).lower()
+    portal_raw = (portal_html or "").lower()
     blog = _visible_text(blog_html).lower()
-    if "season 3" not in portal or not any(term in portal for term in ("daily check-in", "spin")):
+    season_live = "season 3" in portal or "push rewards s3" in portal_raw or "push chain rewards s3" in portal_raw
+    if not season_live:
         return []
-    if "season 3" not in blog:
+    if "season 3" not in blog and "push rewards program" not in blog:
         return []
     now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     return [{
