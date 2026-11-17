@@ -327,7 +327,7 @@ async def wallets(authorization: str|None=Header(default=None)):
             recent=False
             if captured:
                 try:
-                    recent=(now-datetime.fromisoformat(captured.replace("Z","+00:00"))).total_seconds()<900
+                    recent=(now-datetime.fromisoformat(captured.replace("Z","+00:00"))).total_seconds()<3600
                 except Exception:
                     recent=False
             if not recent:
