@@ -6,6 +6,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from pywebpush import webpush, WebPushException
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -294,6 +295,37 @@ async def push_subscribe(request:Request,authorization: str|None=Header(default=
     await db_insert("push_subscriptions",{"owner_id":user["id"],"endpoint":endpoint,"p256dh":keys["p256dh"],"auth_secret":keys["auth"],"user_agent":request.headers.get("user-agent")},authorization.split(" ",1)[1])
     return {"ok":True}
 
+async def send_push_to_owner(owner_id, title, body, target_url="/", owner_token=None):
+    if not VAPID_PUBLIC_KEY or not VAPID_PRIVATE_KEY:
+        return 0
+    try:
+        subscriptions=await db_get("push_subscriptions",owner_id,"select=endpoint,p256dh,auth_secret",owner_token)
+    except Exception:
+        log.exception("Could not load push subscriptions")
+        return 0
+    payload=json.dumps({"title":title,"body":body,"url":target_url},ensure_ascii=False)
+    async def deliver(subscription):
+        try:
+            await asyncio.to_thread(
+                webpush,
+                subscription_info={
+                    "endpoint":subscription["endpoint"],
+                    "keys":{"p256dh":subscription["p256dh"],"auth":subscription["auth_secret"]},
+                },
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub":VAPID_SUBJECT},
+            )
+            return True
+        except WebPushException as error:
+            log.warning("Web Push delivery failed: %s",str(error)[:180])
+            return False
+        except Exception as error:
+            log.warning("Web Push error: %s",str(error)[:180])
+            return False
+    results=await asyncio.gather(*(deliver(item) for item in subscriptions))
+    return sum(1 for result in results if result)
+
 async def scheduled_health_scan():
     # Worker heartbeat only until official-source connectors and service credentials are configured.
     log.info("Scheduled scan heartbeat: connectors not yet configured; no wallet or transaction actions are performed.")
@@ -390,6 +422,13 @@ async def run_scan(authorization: str|None=Header(default=None)):
                 "body":summary+" Награды и eligibility не подтверждены; сначала проверь условия.",
                 "category":"discovery",
             },token)
+            await send_push_to_owner(
+                owner_id,
+                "Найдены новые кандидаты",
+                summary+" Проверь условия в приложении.",
+                "/",
+                token,
+            )
         return {
             "accepted":True,
             "status":final_status,
