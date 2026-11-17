@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development")
     LOG_LEVEL: str = Field(default="INFO")
 
+    # --- Безопасность автономных действий ---
+    # По умолчанию ИИ и планировщик не могут инициировать транзакции.
+    AUTONOMOUS_TRANSACTIONS_ENABLED: bool = Field(default=False)
+    # Старые Telegram-уведомления выключены; уведомления новой PWA будут отдельными.
+    LEGACY_TELEGRAM_NOTIFICATIONS_ENABLED: bool = Field(default=False)
+
     # --- Telegram ---
     TELEGRAM_BOT_TOKEN: str = Field(default="")
     TELEGRAM_CHAT_ID: str = Field(default="")

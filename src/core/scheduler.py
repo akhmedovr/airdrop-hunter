@@ -12,7 +12,6 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from src.core.auto_swap import auto_swap_job
 from src.core.config import settings
 from src.core.daily_reports import job_daily_profit
 from src.core.daily_reports import job_daily_today
@@ -212,13 +211,9 @@ def run_scheduler() -> None:
         coalesce=True,
     )
 
-    scheduler.add_job(
-        lambda: _run_with_timeout(auto_swap_job, "auto_swap"),
-        trigger=CronTrigger(hour="7-18", minute="0", jitter=1800),
-        id="auto_swap",
-        name="Auto swap",
-        max_instances=1,
-        coalesce=True,
+    log.warning(
+        "[scheduler] Auto-swap job is not scheduled. "
+        "On-chain actions require explicit user confirmation."
     )
 
     scheduler.add_job(
@@ -255,7 +250,7 @@ def run_scheduler() -> None:
         f"scan: {SCAN_INTERVAL_HOURS}h\n"
         f"balances: {BALANCE_CHECK_INTERVAL_HOURS}h\n"
         f"rpc: 1h\n"
-        f"auto_swap: 10-22 MSK\n"
+        f"auto_swap: disabled (manual confirmation required)\n"
         f"daily_today: 09 MSK\n"
         f"daily_profit: 22:30 MSK\n"
         f"reconcile: {RECONCILE_INTERVAL_MINUTES}m"
