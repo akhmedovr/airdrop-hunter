@@ -509,7 +509,7 @@ async def perform_scan(owner_id, token):
                     "status":"discovered",
                     "eligibility":"unknown",
                     "region_restrictions":[],
-                    "cost_estimate_usd":None,
+                    "cost_estimate_usd":0,
                     "official_rules_url":item["url"] if source_name=="Galxe" else None,
                     "discovered_at":datetime.now(timezone.utc).isoformat(),
                     "checked_at":datetime.now(timezone.utc).isoformat(),
