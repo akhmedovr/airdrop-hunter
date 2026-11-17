@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
-from screening import should_create_review_task
+from screening import preserve_review_state, should_create_review_task
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -450,12 +450,23 @@ async def perform_scan(owner_id, token):
                     "checked_at":datetime.now(timezone.utc).isoformat(),
                 })
                 records.append(item)
-        existing_campaign_rows=await db_get("campaigns",owner_id,"select=url",token)
-        existing_urls={str(row.get("url") or "").rstrip("/").lower() for row in existing_campaign_rows}
+        existing_campaign_rows=await db_get(
+            "campaigns",owner_id,
+            "select=url,status,eligibility,deadline,official_rules_url,confidence,estimated_reward_usd,region_restrictions,kyc_required,anti_sybil_notes,cost_estimate_usd,reward_description,ai_summary",
+            token,
+        )
+        existing_by_url={
+            str(row.get("url") or "").rstrip("/").lower():row
+            for row in existing_campaign_rows
+        }
+        existing_urls=set(existing_by_url)
         unique_records={}
         for record in records:
             key=str(record.get("url") or "").rstrip("/").lower()
-            if key: unique_records[key]=record
+            if not key: continue
+            if key in existing_by_url:
+                record=preserve_review_state(record,existing_by_url[key])
+            unique_records[key]=record
         records=list(unique_records.values())
         saved=await db_upsert("campaigns",records,"owner_id,url",token) if records else []
         new_saved=[row for row in saved if str(row.get("url") or "").rstrip("/").lower() not in existing_urls]
