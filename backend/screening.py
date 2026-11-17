@@ -36,7 +36,7 @@ _AUTOMATION_HOLD_RE = re.compile(r"\b(?:holding|hold|balance|deposit|stake|vault
 def classify_automation_fit(campaign: dict) -> dict:
     """Heuristic triage for the user's low-touch preference; never an eligibility or reward guarantee."""
     item = campaign or {}
-    text = " ".join(str(item.get(key) or "") for key in ("title", "reward_description", "ai_summary")).lower()
+    text = " ".join(str(item.get(key) or "") for key in ("title", "reward_description")).lower()
     if _AUTOMATION_NODE_RE.search(text):
         return {
             "mode": "node_uptime",
