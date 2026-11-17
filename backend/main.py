@@ -176,7 +176,7 @@ async def fetch_galxe_campaigns():
                     "project_name":alias or "Galxe",
                     "url":f"https://app.galxe.com/quest/{path}",
                     "chain":None,
-                    "reward_description":"Действующая кампания Galxe Quest. Последний день участия — 5 декабря 2026; последний день получения наград — 15 декабря 2026. Наличие токеновой награды и eligibility не подтверждено.",
+                    "reward_description":"Galxe API сообщил status=Active на момент сканирования. Тип награды, дедлайн конкретного квеста, требования eligibility, стоимость участия и возможность вывода не проверены. Общий срок участия на платформе — до 5 декабря 2026; получение уже заработанных наград — до 15 декабря 2026.",
                     "confidence":0.35,
                     "evidence":[{
                         "source":"Galxe (sunsetting)",
@@ -185,7 +185,7 @@ async def fetch_galxe_campaigns():
                         "checked_at":datetime.now(timezone.utc).isoformat(),
                         "official_notice":"https://help.galxe.com/en/articles/18361711-galxe-is-integrating-into-gravity-what-you-need-to-know",
                     }],
-                    "ai_summary":"Galxe Quest сворачивается: новые кампании создавать нельзя с 9 ноября 2026. Существующие кампании доступны до 5 декабря 2026, получение наград — до 15 декабря 2026. Проверить точные условия до любых действий.",
+                    "ai_summary":"Статус Active получен из публичного API Galxe на момент сканирования. Это не подтверждает наличие денежной награды или право пользователя на неё. Необходимо отдельно проверить страницу квеста, точный дедлайн, требования, платные условия и механику выплаты. Общие даты закрытия Galxe: участие до 5 декабря 2026, claim до 15 декабря 2026.",
                     "anti_sybil_notes":"Не обходить KYC, географические ограничения, CAPTCHA и anti-Sybil правила. Учитывать объявленное закрытие Galxe Quest.",
                 }
     return list(campaigns.values())
