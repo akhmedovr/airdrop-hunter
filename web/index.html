@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="Личная панель Airdrop Hunter для поиска и учёта Web3-наград.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Airdrop Hunter">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <title>Airdrop Hunter</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Airdrop Hunter — главная">
+        <span class="brand-mark">AH</span>
+        <span class="brand-copy"><strong>Airdrop Hunter</strong><small>Личная панель</small></span>
+      </a>
+      <div class="top-actions">
+        <button class="secondary-button install-button" id="installButton">Установить</button>
+        <span class="connection" id="connection"><i></i> Проверка связи</span>
+        <button class="icon-button" id="refreshButton" aria-label="Обновить данные" title="Обновить">↻</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">ЛИЧНЫЙ WEB3-ЦЕНТР</p>
+          <h1>Сначала проверяем.<br><span>Потом действуем.</span></h1>
+          <p class="welcome-text">Поиск возможностей, оценка расходов и контроль наград — в одном месте.</p>
+        </div>
+        <div class="welcome-status">
+          <span class="status-pulse"></span>
+          <span id="systemStatus">Ожидает подключения сервера</span>
+        </div>
+      </section>
+
+      <nav class="desktop-nav" aria-label="Основная навигация">
+        <button class="nav-item active" data-view="overview">Обзор</button>
+        <button class="nav-item" data-view="opportunities">Возможности</button>
+        <button class="nav-item" data-view="tasks">Задания</button>
+        <button class="nav-item" data-view="wallets">Кошельки</button>
+        <button class="nav-item" data-view="notifications">Уведомления <span class="nav-count" id="unreadCount">0</span></button>
+        <button class="nav-item" data-view="assistant">AI-агент</button>
+      </nav>
+
+      <section class="view active" id="view-overview">
+        <div class="section-heading">
+          <div><p class="eyebrow">СВОДКА</p><h2>Текущая ситуация</h2></div>
+          <span class="date-label" id="todayLabel">Сегодня</span>
+        </div>
+        <div class="metrics-grid">
+          <article class="metric-card"><span>Активные кампании</span><strong id="metricCampaigns">—</strong><small>После проверки условий</small></article>
+          <article class="metric-card"><span>Задания на сегодня</span><strong id="metricTasks">—</strong><small>Приоритетный план</small></article>
+          <article class="metric-card"><span>Можно получить</span><strong id="metricClaimable">—</strong><small>Только подтверждённые награды</small></article>
+          <article class="metric-card"><span>Реализованный результат</span><strong id="metricPnl">—</strong><small>За вычетом учтённых расходов</small></article>
+        </div>
+
+        <div class="content-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">ПЛАН</p><h3>На сегодня</h3></div><span class="muted-pill">AI-планирование</span></div>
+            <div class="empty-state"><span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>После подключения сканера AI отберёт задания по доходности, затратам, срокам и доступности.</p></div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">МОНИТОРИНГ</p><h3>Последние события</h3></div><button class="text-button" data-go="notifications">Все уведомления →</button></div>
+            <div class="empty-state compact"><span class="empty-icon">◷</span><strong>Событий пока нет</strong><p>Новые кампании, изменения условий и дедлайны появятся здесь.</p></div>
+          </article>
+        </div>
+        <div class="notice"><span class="notice-icon">!</span><p><strong>Безопасный режим включён.</strong> ИИ может искать, анализировать и планировать. Подпись транзакций, переводы, approve и платные действия остаются под твоим контролем.</p></div>
+      </section>
+
+      <section class="view" id="view-opportunities">
+        <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><span class="muted-pill">Источники будут подключены</span></div>
+        <article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Сканер ещё не подключён</h3><p>Здесь будут кампании из официальных источников, с проверкой доступности в России, KYC, сроков, расходов и условий награды.</p></article>
+      </section>
+
+      <section class="view" id="view-tasks">
+        <div class="section-heading"><div><p class="eyebrow">EXECUTION</p><h2>Задания</h2></div><span class="muted-pill">Требует проверки</span></div>
+        <article class="panel empty-page"><span class="empty-icon large">☷</span><h3>Очередь заданий пуста</h3><p>AI будет составлять короткий план. Для действий от имени пользователя появится отдельное подтверждение.</p></article>
+      </section>
+
+      <section class="view" id="view-wallets">
+        <div class="section-heading"><div><p class="eyebrow">READ-ONLY</p><h2>Кошельки</h2></div><span class="security-tag">Только публичные данные</span></div>
+        <article class="panel empty-page"><span class="empty-icon large">◇</span><h3>Кошельки не подключены</h3><p>Будут отображаться публичные адреса, балансы, история транзакций и комиссии. Seed-фразы и приватные ключи не нужны.</p></article>
+      </section>
+
+      <section class="view" id="view-notifications">
+        <div class="section-heading"><div><p class="eyebrow">INBOX</p><h2>Уведомления</h2></div><button class="secondary-button" id="enablePush">Включить push</button></div>
+        <article class="panel">
+          <div class="notification-settings"><div><strong>Push на iPhone</strong><p>Для системных уведомлений добавь приложение на экран «Домой» и разреши уведомления.</p></div><span class="muted-pill" id="pushStatus">Не настроено</span></div>
+          <div class="empty-state"><span class="empty-icon">♧</span><strong>Пока нет уведомлений</strong><p>Важные кампании, дедлайны и результаты проверок будут сохраняться здесь. Telegram не используется.</p></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-assistant">
+        <div class="section-heading"><div><p class="eyebrow">INTELLIGENCE</p><h2>AI-агент</h2></div><span class="muted-pill">Ожидает API</span></div>
+        <article class="panel assistant-panel">
+          <div class="assistant-orb">AI</div><h3>Аналитик Airdrop Hunter</h3>
+          <p>Агент будет искать первоисточники, проверять условия, рассчитывать расходы и готовить план. Он не будет самостоятельно подписывать транзакции или обходить ограничения платформ.</p>
+          <div class="assistant-disabled"><span>Сервер и OpenAI API ещё не подключены</span></div>
+        </article>
+      </section>
+    </main>
+
+    <nav class="mobile-nav" aria-label="Нижняя навигация">
+      <button class="mobile-nav-item active" data-view="overview"><span>⌂</span>Обзор</button>
+      <button class="mobile-nav-item" data-view="opportunities"><span>⌕</span>Поиск</button>
+      <button class="mobile-nav-item" data-view="tasks"><span>☷</span>Задания</button>
+      <button class="mobile-nav-item" data-view="wallets"><span>◇</span>Кошельки</button>
+      <button class="mobile-nav-item" data-view="notifications"><span>♧</span>Уведомления</button>
+      <button class="mobile-nav-item" data-view="assistant"><span>AI</span>AI</button>
+    </nav>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
