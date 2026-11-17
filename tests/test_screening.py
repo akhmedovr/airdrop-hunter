@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from screening import preserve_review_state, should_create_review_task
+from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
 
 
 class ScreeningTests(unittest.TestCase):
@@ -48,6 +48,14 @@ class ScreeningTests(unittest.TestCase):
             {"title": "Win 50 USDT"},
             "Unknown source",
         ))
+
+    def test_campaign_records_are_normalized_for_bulk_upsert(self):
+        defillama = normalize_campaign_record({"title": "A", "source_id": "1"})
+        galxe = normalize_campaign_record({"title": "B", "source_id": "2", "deadline": None})
+        self.assertEqual(set(defillama), set(galxe))
+        self.assertEqual(defillama["region_restrictions"], [])
+        self.assertEqual(defillama["cost_estimate_usd"], 0)
+        self.assertIsNone(defillama["estimated_reward_usd"])
 
     def test_unreviewed_discovery_data_is_refreshed(self):
         incoming = {
