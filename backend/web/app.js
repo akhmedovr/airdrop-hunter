@@ -268,10 +268,14 @@ async function loadAppData() {
   const connection = document.getElementById("connection");
   const status = document.getElementById("systemStatus");
   try {
+    try { await request("/api/profile/bootstrap",{method:"POST",body:JSON.stringify({})}); }
+    catch (profileError) { console.warn("Profile bootstrap pending:",profileError.message); }
     const health = await request("/api/health");
     connection.classList.add("online");
     connection.innerHTML = "<i></i> Сервер подключён";
-    status.textContent = health.status === "ok" ? "API на связи · сканирование по запросу" : "Сервер отвечает";
+    status.textContent = health.status === "ok" ? (health.worker_write_enabled ? "API на связи · фоновый сканер готов" : "API на связи · сканирование по запросу") : "Сервер отвечает";
+    const pushStatus=document.getElementById("pushStatus");
+    if (pushStatus && health.push_configured && pushStatus.textContent==="Не настроено") pushStatus.textContent="Готово к подключению";
     const dashboard = await request("/api/dashboard");
     document.getElementById("metricCampaigns").textContent = dashboard.active_campaigns ?? "—";
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
