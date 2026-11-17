@@ -54,6 +54,145 @@ async function request(path, options = {}) {
   return response.json();
 }
 
+function renderEmpty(root, icon, title, description) {
+  root.replaceChildren();
+  const card = document.createElement("article");
+  card.className = "panel empty-page";
+  const symbol = document.createElement("span");
+  symbol.className = "empty-icon large";
+  symbol.textContent = icon;
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  const detail = document.createElement("p");
+  detail.textContent = description;
+  card.append(symbol, heading, detail);
+  root.append(card);
+}
+
+function safeLink(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function recordCard(title, description, meta, url) {
+  const card = document.createElement("article");
+  card.className = "panel record-card";
+  const heading = document.createElement("h3");
+  heading.textContent = title || "Без названия";
+  const detail = document.createElement("p");
+  detail.textContent = description || "";
+  const info = document.createElement("small");
+  info.className = "record-meta";
+  info.textContent = meta || "";
+  card.append(heading, info, detail);
+  const href = safeLink(url);
+  if (href) {
+    const link = document.createElement("a");
+    link.className = "record-link";
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Открыть источник";
+    card.append(link);
+  }
+  return card;
+}
+
+function shortAddress(address) {
+  const value = String(address || "");
+  return value.length > 16 ? value.slice(0, 8) + "…" + value.slice(-6) : value;
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
+}
+
+async function loadOpportunities() {
+  const root = document.getElementById("opportunitiesList");
+  if (!root) return;
+  try {
+    const data = await request("/api/opportunities");
+    const items = data.items || [];
+    if (!items.length) {
+      renderEmpty(root, "⌕", "Пока нет результатов", "Запусти сканирование публичных источников. Найденные записи будут считаться кандидатами, а не подтверждёнными наградами.");
+      return;
+    }
+    root.replaceChildren();
+    items.forEach((item) => {
+      const source = item.evidence?.[0]?.source || "Источник не указан";
+      const meta = [source, item.chain || "Сеть не определена", "Eligibility: " + (item.eligibility || "unknown"), "Статус: " + (item.status || "discovered")].join(" · ");
+      root.append(recordCard(item.title, item.reward_description || item.ai_summary, meta, item.url));
+    });
+  } catch (error) {
+    renderEmpty(root, "!", "Не удалось загрузить возможности", error.message);
+  }
+}
+
+async function loadTasks() {
+  const root = document.getElementById("tasksList");
+  if (!root) return;
+  try {
+    const data = await request("/api/tasks");
+    const items = data.items || [];
+    if (!items.length) {
+      renderEmpty(root, "☷", "Очередь заданий пуста", "Задания появятся после отдельной проверки правил и eligibility кампаний.");
+      return;
+    }
+    root.replaceChildren();
+    items.forEach((item) => {
+      const meta = ["Статус: " + item.status, item.due_at ? "Срок: " + formatDate(item.due_at) : ""].filter(Boolean).join(" · ");
+      root.append(recordCard(item.title, item.description, meta, item.task_url));
+    });
+  } catch (error) {
+    renderEmpty(root, "!", "Не удалось загрузить задания", error.message);
+  }
+}
+
+async function loadWallets() {
+  const root = document.getElementById("walletsList");
+  if (!root) return;
+  try {
+    const data = await request("/api/wallets");
+    const items = data.items || [];
+    if (!items.length) {
+      renderEmpty(root, "◇", "Кошельки пока не добавлены", "Добавь публичный адрес для read-only мониторинга. Seed-фразы и приватные ключи не нужны.");
+      return;
+    }
+    root.replaceChildren();
+    items.forEach((item) => {
+      root.append(recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение", null));
+    });
+  } catch (error) {
+    renderEmpty(root, "!", "Не удалось загрузить кошельки", error.message);
+  }
+}
+
+async function loadNotifications() {
+  const root = document.getElementById("notificationsList");
+  if (!root) return;
+  try {
+    const data = await request("/api/notifications");
+    document.getElementById("unreadCount").textContent = String(data.unread_count || 0);
+    const items = data.items || [];
+    if (!items.length) {
+      renderEmpty(root, "♧", "Пока нет уведомлений", "События сканирования, кампании и дедлайны будут появляться здесь.");
+      return;
+    }
+    root.replaceChildren();
+    items.forEach((item) => {
+      root.append(recordCard(item.title, item.body, [item.category, formatDate(item.created_at)].filter(Boolean).join(" · "), item.target_url));
+    });
+  } catch (error) {
+    renderEmpty(root, "!", "Не удалось загрузить уведомления", error.message);
+  }
+}
+
 async function loadAppData() {
   if (!authSession?.access_token) return;
   const connection = document.getElementById("connection");
@@ -68,9 +207,7 @@ async function loadAppData() {
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
     document.getElementById("metricClaimable").textContent = formatMoney(dashboard.claimable_rewards_usd);
     document.getElementById("metricPnl").textContent = formatMoney(dashboard.realized_pnl_usd);
-    const notifications = await request("/api/notifications");
-    const unread = Number(notifications.unread_count || 0);
-    document.getElementById("unreadCount").textContent = String(unread);
+    await Promise.all([loadOpportunities(), loadTasks(), loadWallets(), loadNotifications()]);
   } catch (error) {
     connection.classList.remove("online");
     connection.innerHTML = "<i></i> Сервер не подключён";
@@ -112,6 +249,46 @@ async function enablePush() {
 }
 
 document.getElementById("enablePush").addEventListener("click", enablePush);
+
+document.getElementById("scanButton")?.addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = "Проверяю источники…";
+  try {
+    const result = await request("/api/agent/run-scan", { method: "POST" });
+    showToast(result.message || "Проверка завершена.");
+    await Promise.all([loadOpportunities(), loadNotifications(), loadAppData()]);
+  } catch (error) {
+    showToast("Сканирование не выполнено: " + error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Запустить сканирование";
+  }
+});
+
+document.getElementById("walletForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  try {
+    await request("/api/wallets", {
+      method: "POST",
+      body: JSON.stringify({
+        label: document.getElementById("walletLabel").value.trim(),
+        address: document.getElementById("walletAddress").value.trim(),
+        chain: document.getElementById("walletChain").value,
+      }),
+    });
+    form.reset();
+    await loadWallets();
+    showToast("Публичный адрес добавлен.");
+  } catch (error) {
+    showToast("Не удалось добавить адрес: " + error.message);
+  } finally {
+    submit.disabled = false;
+  }
+});
 document.getElementById("refreshButton").addEventListener("click", () => {
   loadAppData();
   showToast("Обновляю данные…");
