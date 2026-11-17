@@ -75,11 +75,11 @@
         <div class="content-grid">
           <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">ПЛАН</p><h3>На сегодня</h3></div><span class="muted-pill">AI-планирование</span></div>
-            <div class="empty-state"><span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>После подключения сканера AI отберёт задания по доходности, затратам, срокам и доступности.</p></div>
+            <div class="empty-state" id="planList"><span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>После подключения сканера AI отберёт задания по доходности, затратам, срокам и доступности.</p></div>
           </article>
           <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">МОНИТОРИНГ</p><h3>Последние события</h3></div><button class="text-button" data-go="notifications">Все уведомления →</button></div>
-            <div class="empty-state compact"><span class="empty-icon">◷</span><strong>Событий пока нет</strong><p>Новые кампании, изменения условий и дедлайны появятся здесь.</p></div>
+            <div class="empty-state compact" id="recentEventsList"><span class="empty-icon">◷</span><strong>Событий пока нет</strong><p>Новые кампании, изменения условий и дедлайны появятся здесь.</p></div>
           </article>
         </div>
         <div class="notice"><span class="notice-icon">!</span><p><strong>Безопасный режим включён.</strong> ИИ может искать, анализировать и планировать. Подпись транзакций, переводы, approve и платные действия остаются под твоим контролем.</p></div>
@@ -87,6 +87,7 @@
 
       <section class="view" id="view-opportunities">
         <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><button class="secondary-button" id="scanButton" type="button">Запустить сканирование</button></div>
+        <p class="section-hint" id="scanStatus">Кандидаты будут помечены как непроверенные до проверки официальных условий.</p>
         <div id="opportunitiesList" class="record-list"><article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Пока нет результатов</h3><p>Запусти проверку публичных источников. Все найденные кампании будут помечены как непроверенные, пока не подтверждены условия и eligibility.</p></article></div>
       </section>
 
