@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from reward_sources import parse_defillama_rewards_html, parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
+from reward_sources import parse_defillama_rewards_html, parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch
 
 
 class RewardSourceParserTests(unittest.TestCase):
@@ -120,6 +120,25 @@ class RewardSourceParserTests(unittest.TestCase):
     def test_defillama_api_ignores_referral_only_and_non_live_rows(self):
         payload = [{"protocol":"Example","reward_types":["Commission"],"publish_status":"Published","lifecycle":"Live"},{"protocol":"Example 2","reward_types":["Points"],"publish_status":"Published","lifecycle":"Season Gap"}]
         self.assertEqual(parse_defillama_rewards_payload(payload, checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc)), [])
+
+
+    def test_aioz_depin_watch_requires_reward_and_resource_signals(self):
+        rows = parse_aioz_depin_watch(
+            "<body>Rewarded in AIOZ tokens. Minimum withdrawal is 1 AIOZ.</body>",
+            "<body>50 GB free storage. Stable 20 Mbps network.</body>",
+            checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc),
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertIn("not an airdrop", rows[0]["reward_description"])
+        self.assertIn("No revenue estimate", rows[0]["ai_summary"])
+
+    def test_aioz_depin_watch_rejects_missing_resource_requirements(self):
+        rows = parse_aioz_depin_watch(
+            "<body>Rewarded in AIOZ tokens. Minimum withdrawal is 1 AIOZ.</body>",
+            "<body>Low resource node.</body>",
+            checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc),
+        )
+        self.assertEqual(rows, [])
 
 
 if __name__ == "__main__":

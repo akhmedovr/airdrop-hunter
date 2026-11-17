@@ -468,3 +468,46 @@ def parse_defillama_rewards_payload(payload, checked_at=None, max_age_days=120, 
         if len(records) >= max(1, min(int(limit), 200)):
             break
     return records
+
+def parse_aioz_depin_watch(cli_html, gui_html, checked_at=None):
+    cli = _visible_text(cli_html).lower()
+    gui = _visible_text(gui_html).lower()
+    if "rewarded in aioz tokens" not in cli and "rewarded in aioz tokens" not in gui:
+        return []
+    if "1 aioz" not in cli:
+        return []
+    if "50 gb" not in gui and "50 gb" not in cli:
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return [{
+        "title": "AIOZ DePIN — direct token rewards for node resources",
+        "project_name": "AIOZ Network",
+        "url": "https://docs.aioz.network/aioz-depin/depin-app/depin-cli",
+        "chain": "AIOZ Network",
+        "reward_description": (
+            "AIOZ's official DePIN CLI rewards contributors in AIOZ tokens for verified storage, bandwidth, "
+            "delivery, transcoding and AI work. The GUI baseline is at least 50 GB free storage and a stable "
+            "20 Mbps connection; there is no enforced uptime minimum, but more online time increases the chance "
+            "of receiving tasks. The CLI reports task-specific earnings; minimum withdrawal is 1 AIOZ. "
+            "No fixed reward rate or expected monthly income is published. This is direct DePIN work, not an airdrop."
+        ),
+        "confidence": 0.5,
+        "evidence": [{
+            "source": "AIOZ official DePIN documentation",
+            "cli_url": "https://docs.aioz.network/aioz-depin/depin-app/depin-cli",
+            "gui_url": "https://docs.aioz.network/aioz-depin/depin-app/gui-cli",
+            "checked_at": now.isoformat(),
+            "signals": ["verified-work token rewards", "50 GB storage baseline", "20 Mbps network baseline", "1 AIOZ minimum withdrawal"],
+        }],
+        "ai_summary": (
+            "Potential unattended token-reward node only if spare, already-paid infrastructure meets requirements. "
+            "No revenue estimate is available, so do not rent a new VPS or buy hardware. First run a monitored "
+            "7-day pilot on isolated existing infrastructure and compare actual AIOZ earned against incremental "
+            "server, bandwidth and storage costs. Russian-resident eligibility was not established in the reviewed docs."
+        ),
+        "anti_sybil_notes": (
+            "Use one dedicated key per CLI instance and keep the mnemonic/private key offline encrypted. "
+            "Never paste keys into chat. Do not use experimental auto-update in production without a controlled update process. "
+            "Multiple instances behind one public IP share task assignments and can reduce rewards."
+        ),
+    }]
