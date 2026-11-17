@@ -150,10 +150,29 @@ function setAuthenticated(session) {
 }
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const email = document.getElementById("loginEmail").value.trim();
-  authMessage.textContent = "Отправляю ссылку…";
-  const { error } = await authClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
-  authMessage.textContent = error ? error.message : "Ссылка отправлена. Открой письмо и перейди по ссылке на этом устройстве.";
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+  const password = document.getElementById("loginPassword").value;
+  const submit = event.currentTarget.querySelector('button[type="submit"]');
+  submit.disabled = true;
+  authMessage.textContent = "Проверяю доступ…";
+  try {
+    let result = await authClient.auth.signInWithPassword({ email, password });
+    if (result.error && /invalid login credentials/i.test(result.error.message)) {
+      const created = await authClient.auth.signUp({ email, password });
+      if (created.error) throw created.error;
+      if (!created.data.session) {
+        throw new Error("Регистрация требует подтверждения email. Владелец проекта должен отключить Email confirmations в Supabase Auth.");
+      }
+      result = { data: created.data, error: null };
+    }
+    if (result.error) throw result.error;
+    setAuthenticated(result.data.session);
+    authMessage.textContent = "Вход выполнен.";
+  } catch (error) {
+    authMessage.textContent = error.message || "Не удалось выполнить вход.";
+  } finally {
+    submit.disabled = false;
+  }
 });
 signOutButton.addEventListener("click", async () => { await authClient.auth.signOut(); setAuthenticated(null); });
 authClient.auth.onAuthStateChange((_event, session) => setAuthenticated(session));
