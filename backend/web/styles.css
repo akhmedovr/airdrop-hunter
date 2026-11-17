@@ -70,3 +70,26 @@ h1,h2,h3,p{margin-top:0}h1{font:800 clamp(34px,5vw,56px)/1.06 Manrope,sans-serif
 .auth-card input:focus{border-color:var(--accent)}
 .auth-card button{width:100%;padding:14px}
 .auth-message{min-height:18px;font-size:11px!important;color:var(--accent)!important;margin:14px 0 0}
+
+
+/* Live data views */
+.data-list { display:grid; gap:12px; }
+.data-card { padding:18px; }
+.data-card h3 { margin:0; font-size:1rem; }
+.data-card p { margin:10px 0; color:var(--muted); line-height:1.5; }
+.data-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.data-meta { color:var(--muted); font-size:.82rem; margin:10px 0; }
+.data-card a { color:var(--accent); text-decoration:none; font-weight:600; }
+.data-actions { display:flex; gap:8px; margin-top:12px; }
+.section-hint { color:var(--muted); font-size:.9rem; line-height:1.5; margin:-8px 0 16px; }
+.wallet-add-panel { margin-bottom:14px; }
+.wallet-add-panel h3 { margin:0 0 8px; }
+.wallet-add-panel p { color:var(--muted); line-height:1.5; }
+.wallet-form { display:grid; grid-template-columns:1fr 1.5fr 1fr auto; gap:10px; margin-top:14px; }
+.wallet-form input,.wallet-form select { width:100%; min-width:0; padding:12px; border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--text); }
+.wallet-address { overflow-wrap:anywhere; font-family:ui-monospace,monospace; font-size:.85rem; }
+.data-card.unread { border-color:var(--accent); }
+@media (max-width:700px) {
+  .wallet-form { grid-template-columns:1fr; }
+  .data-card { padding:15px; }
+}
