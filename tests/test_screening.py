@@ -146,5 +146,14 @@ class ScreeningTests(unittest.TestCase):
         self.assertIn("Automation fit (heuristic): medium", normalized["ai_summary"])
 
 
+    def test_generic_ai_risk_disclaimer_does_not_force_trading_classification(self):
+        result = classify_automation_fit({
+            "title": "Stablecoin balance rewards",
+            "reward_description": "Earn points from holding a stablecoin balance.",
+            "ai_summary": "Trading, deposits, staking, liquidity and volume may create costs and losses.",
+        })
+        self.assertEqual(result["mode"], "passive_holding_or_vault")
+
+
 if __name__ == "__main__":
     unittest.main()
