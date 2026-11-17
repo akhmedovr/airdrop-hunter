@@ -20,6 +20,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Compile Python modules
-        run: python -m compileall -q src tests
+        run: python -m compileall -q src backend tests
       - name: Run safety tests
         run: python -m unittest discover -s tests -v
