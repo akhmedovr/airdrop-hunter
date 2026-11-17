@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
-from screening import preserve_review_state, should_create_review_task
+from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -450,6 +450,8 @@ async def perform_scan(owner_id, token):
                     "checked_at":datetime.now(timezone.utc).isoformat(),
                 })
                 records.append(item)
+        # PostgREST bulk upsert requires identical top-level keys in every row.
+        records=[normalize_campaign_record(record) for record in records]
         existing_campaign_rows=await db_get(
             "campaigns",owner_id,
             "select=url,status,eligibility,deadline,official_rules_url,confidence,estimated_reward_usd,region_restrictions,kyc_required,anti_sybil_notes,cost_estimate_usd,reward_description,ai_summary",
