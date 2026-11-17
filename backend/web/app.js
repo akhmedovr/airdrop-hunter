@@ -139,6 +139,9 @@ loadAppData();
 const authGate = document.getElementById("authGate");
 const authMessage = document.getElementById("authMessage");
 const signOutButton = document.getElementById("signOutButton");
+const loginSubmit = document.querySelector("#loginForm button[type=\"submit\"]");
+const resetPasswordButton = document.getElementById("resetPasswordButton");
+let recoveryMode = false;
 function setAuthenticated(session) {
   authSession = session;
   const active = Boolean(session?.access_token);
@@ -154,26 +157,66 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   const password = document.getElementById("loginPassword").value;
   const submit = event.currentTarget.querySelector('button[type="submit"]');
   submit.disabled = true;
-  authMessage.textContent = "Проверяю доступ…";
+  authMessage.textContent = recoveryMode ? "Сохраняю новый пароль…" : "Проверяю доступ…";
   try {
-    let result = await authClient.auth.signInWithPassword({ email, password });
-    if (result.error && /invalid login credentials/i.test(result.error.message)) {
-      const created = await authClient.auth.signUp({ email, password });
-      if (created.error) throw created.error;
-      if (!created.data.session) {
-        throw new Error("Регистрация требует подтверждения email. Владелец проекта должен отключить Email confirmations в Supabase Auth.");
-      }
-      result = { data: created.data, error: null };
+    if (recoveryMode) {
+      const { error } = await authClient.auth.updateUser({ password });
+      if (error) throw error;
+      recoveryMode = false;
+      document.getElementById("loginPassword").value = "";
+      document.getElementById("loginPassword").placeholder = "Пароль";
+      loginSubmit.textContent = "Войти";
+      authMessage.textContent = "Пароль обновлён. Теперь войди с новым паролем.";
+      await authClient.auth.signOut();
+      return;
     }
-    if (result.error) throw result.error;
-    setAuthenticated(result.data.session);
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    setAuthenticated(data.session);
     authMessage.textContent = "Вход выполнен.";
   } catch (error) {
-    authMessage.textContent = error.message || "Не удалось выполнить вход.";
+    const message = error.message || "Не удалось выполнить вход.";
+    authMessage.textContent = /invalid login credentials/i.test(message)
+      ? "Неверный email или пароль. Если пароль не помнишь, нажми «Сбросить пароль»."
+      : message;
   } finally {
     submit.disabled = false;
   }
 });
+resetPasswordButton.addEventListener("click", async () => {
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+  if (!email) {
+    authMessage.textContent = "Сначала введи email.";
+    document.getElementById("loginEmail").focus();
+    return;
+  }
+  resetPasswordButton.disabled = true;
+  authMessage.textContent = "Отправляю ссылку для сброса пароля…";
+  try {
+    const { error } = await authClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/"
+    });
+    if (error) throw error;
+    authMessage.textContent = "Если для этого email есть аккаунт, Supabase отправит письмо со ссылкой для сброса пароля. Проверь входящие и спам.";
+  } catch (error) {
+    authMessage.textContent = error.message || "Не удалось отправить письмо для сброса.";
+  } finally {
+    resetPasswordButton.disabled = false;
+  }
+});
 signOutButton.addEventListener("click", async () => { await authClient.auth.signOut(); setAuthenticated(null); });
-authClient.auth.onAuthStateChange((_event, session) => setAuthenticated(session));
+authClient.auth.onAuthStateChange((event, session) => {
+  if (event === "PASSWORD_RECOVERY") {
+    recoveryMode = true;
+    authGate.hidden = false;
+    document.querySelector("main").style.visibility = "hidden";
+    document.querySelector(".mobile-nav").style.visibility = "hidden";
+    document.getElementById("loginPassword").value = "";
+    document.getElementById("loginPassword").placeholder = "Новый пароль (минимум 8 символов)";
+    loginSubmit.textContent = "Сохранить новый пароль";
+    authMessage.textContent = "Придумай новый пароль и нажми «Сохранить новый пароль».";
+  } else {
+    setAuthenticated(session);
+  }
+});
 authClient.auth.getSession().then(({ data }) => setAuthenticated(data.session));
