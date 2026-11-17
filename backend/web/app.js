@@ -38,15 +38,24 @@ function formatMoney(value) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(API + path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-  });
-  if (!response.ok) throw new Error("HTTP " + response.status);
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  if (authSession?.access_token) {
+    headers.Authorization = "Bearer " + authSession.access_token;
+  }
+  const response = await fetch(API + path, { ...options, headers });
+  if (!response.ok) {
+    let detail = "HTTP " + response.status;
+    try {
+      const payload = await response.json();
+      detail = payload.detail || payload.message || detail;
+    } catch (_) {}
+    throw new Error(detail);
+  }
   return response.json();
 }
 
 async function loadAppData() {
+  if (!authSession?.access_token) return;
   const connection = document.getElementById("connection");
   const status = document.getElementById("systemStatus");
   try {
