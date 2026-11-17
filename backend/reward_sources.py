@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 
 DEFILLAMA_REWARDS_URL = "https://defillama.com/rewards"
+DEFILLAMA_REWARDS_API_URL = "https://api.llama.fi/rewards"
 PERPDEX_DATA_URL = "https://perpdexairdrops.com/data/programs.json"
 _PERPDEX_LICENSE = "CC BY 4.0"
 
@@ -376,3 +377,94 @@ def parse_flop_testnet_watch(docs_html, testnet_html, checked_at=None):
         ),
         "anti_sybil_notes": "No artificial activity or duplicate identities. Do not purchase compute or rent hardware without approval.",
     }]
+
+
+def parse_defillama_rewards_payload(payload, checked_at=None, max_age_days=120, limit=150):
+    """Parse the official DeFiLlama rewards JSON feed into unverified discovery leads."""
+    if not isinstance(payload, list):
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    wanted = {"points", "airdrop", "cashback", "prize pool", "trading rewards", "signup bonus"}
+    records = []
+    seen = set()
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        lifecycle = str(item.get("lifecycle") or "").strip().lower()
+        publish_status = str(item.get("publish_status") or "").strip().lower()
+        visibility = str(item.get("visibility") or "public").strip().lower()
+        reward_types = [str(value).strip() for value in (item.get("reward_types") or []) if str(value).strip()]
+        if lifecycle != "live" or publish_status != "published" or visibility == "hidden":
+            continue
+        if not any(value.lower() in wanted for value in reward_types):
+            continue
+        verified_at = _as_utc(item.get("last_verified"))
+        age_days = (now - verified_at).total_seconds() / 86400 if verified_at else None
+        if age_days is not None and age_days > max_age_days:
+            continue
+        end_at = _as_utc(item.get("end_date"))
+        if end_at and end_at.date() < now.date():
+            continue
+        start_at = _as_utc(item.get("start_date"))
+        if start_at and start_at.date() > now.date():
+            continue
+        protocol = str(item.get("protocol") or "").strip()
+        if not protocol:
+            continue
+        program_name = str(item.get("program_name") or "Rewards program").strip()
+        title = f"{protocol} — {program_name}"
+        project_path = str(item.get("project_path") or "").strip()
+        source_urls = [value.strip() for value in str(item.get("source_url") or "").split("|") if value.strip().startswith("https://")]
+        url = f"https://defillama.com{project_path}" if project_path.startswith("/protocol/") else (source_urls[0] if source_urls else DEFILLAMA_REWARDS_URL)
+        key = (str(item.get("program_id") or "").lower(), url.lower(), title.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        visitor_benefit = str(item.get("visitor_benefit") or "Not stated")
+        summary = str(item.get("summary") or "Not stated")
+        referrer_benefit = str(item.get("referrer_benefit") or "Not stated")
+        verification = str(item.get("verification") or "Unknown")
+        last_verified = str(item.get("last_verified") or "Not stated")
+        confidence = 0.32 if verification.lower() == "verified" else 0.18
+        if age_days is None or age_days > 45:
+            confidence = min(confidence, 0.22)
+        if visibility != "public":
+            confidence = min(confidence, 0.15)
+        records.append({
+            "title": title[:220],
+            "project_name": protocol[:120],
+            "url": url,
+            "chain": None,
+            "reward_description": (
+                f"DeFiLlama API lists this program as {lifecycle}. Reward types: {', '.join(reward_types)}. "
+                f"Visitor benefit: {visitor_benefit}. Program summary: {summary}. "
+                f"Referral benefit: {referrer_benefit}. Verification: {verification}; last verified: {last_verified}. "
+                "Third-party directory lead only; this does not establish current official eligibility, "
+                "token conversion, or an individual payout. Check the project's own rules before action."
+            )[:1800],
+            "confidence": confidence,
+            "evidence": [{
+                "source": "DeFiLlama Rewards API (third-party index)",
+                "source_url": DEFILLAMA_REWARDS_API_URL,
+                "directory_url": DEFILLAMA_REWARDS_URL,
+                "checked_at": now.isoformat(),
+                "program_id": item.get("program_id"),
+                "verification": verification,
+                "publish_status": publish_status,
+                "visibility": visibility,
+                "lifecycle": lifecycle,
+                "reward_types": reward_types,
+                "last_verified": last_verified,
+                "official_source_urls": source_urls,
+            }],
+            "ai_summary": (
+                "Discovery lead from DeFiLlama's structured public rewards index, not an official project confirmation. "
+                "Eligibility, country restrictions, KYC, token conversion and payout are unknown until the project's "
+                "own terms are checked. Trading, deposits, staking, liquidity, volume or card-spend may create costs "
+                "and losses; do not perform them solely to farm points."
+            ),
+            "anti_sybil_notes": "Official project rules, KYC, geography and anti-Sybil terms not yet checked; no multi-accounting or fake referrals.",
+        })
+        if len(records) >= max(1, min(int(limit), 200)):
+            break
+    return records

@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from reward_sources import parse_defillama_rewards_html, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
+from reward_sources import parse_defillama_rewards_html, parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
 
 
 class RewardSourceParserTests(unittest.TestCase):
@@ -100,6 +100,26 @@ class RewardSourceParserTests(unittest.TestCase):
         rows = parse_push_season3_watch("<html><head><meta property='og:title' content='Push Rewards S3'></head><body>1 FREE Spin/Day</body></html>", "<body>Push Rewards Program</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
         self.assertEqual(len(rows), 1)
         self.assertIn("Exact Season 3 allocation", rows[0]["reward_description"])
+
+
+    def test_defillama_api_keeps_live_published_verified_rewards(self):
+        payload = [{"verification":"Verified","visitor_benefit":"Earn points from real use.","reward_types":["Points","Airdrop"],"visibility":"Public","program_id":"p1","protocol":"Example Protocol","publish_status":"Published","last_verified":"2026-11-10","source_url":"https://example.org/rewards | https://example.org/terms","lifecycle":"Live","summary":"Earn points from eligible activity.","project_path":"/protocol/example"}]
+        rows = parse_defillama_rewards_payload(payload, checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["url"], "https://defillama.com/protocol/example")
+        self.assertIn("Third-party directory lead only", rows[0]["reward_description"])
+
+    def test_defillama_api_rejects_ended_draft_hidden_and_stale_rows(self):
+        base = {"verification":"Verified","reward_types":["Points"],"visibility":"Public","publish_status":"Published","last_verified":"2026-11-10","protocol":"Example","source_url":"https://example.org","lifecycle":"Live"}
+        ended = dict(base, program_id="ended", end_date="2026-11-01")
+        draft = dict(base, program_id="draft", publish_status="Draft")
+        hidden = dict(base, program_id="hidden", visibility="Hidden")
+        stale = dict(base, program_id="stale", last_verified="2026-01-01")
+        self.assertEqual(parse_defillama_rewards_payload([ended,draft,hidden,stale], checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc)), [])
+
+    def test_defillama_api_ignores_referral_only_and_non_live_rows(self):
+        payload = [{"protocol":"Example","reward_types":["Commission"],"publish_status":"Published","lifecycle":"Live"},{"protocol":"Example 2","reward_types":["Points"],"publish_status":"Published","lifecycle":"Season Gap"}]
+        self.assertEqual(parse_defillama_rewards_payload(payload, checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc)), [])
 
 
 if __name__ == "__main__":
