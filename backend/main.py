@@ -8,7 +8,7 @@ from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
-from reward_sources import parse_defillama_rewards_html, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
+from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -149,15 +149,16 @@ async def fetch_defillama_candidates():
     return candidates[:40]
 
 async def fetch_defillama_rewards():
-    url="https://defillama.com/rewards"
+    url="https://api.llama.fi/rewards"
     async with httpx.AsyncClient(timeout=35,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
         response=await client.get(url)
         response.raise_for_status()
-        records=parse_defillama_rewards_html(response.text)
+        payload=response.json()
+        records=parse_defillama_rewards_payload(payload)
         if not records:
             raise RuntimeError(
-                f"Rewards page returned HTTP 200 but no parseable Live reward rows "
-                f"(response_bytes={len(response.content)}); source requires parser refresh"
+                f"Rewards API returned HTTP 200 but no qualifying Live Published programs "
+                f"(payload_rows={len(payload) if isinstance(payload,list) else 'unknown'}); source requires review"
             )
         return records
 
