@@ -1,4 +1,8 @@
 const API = "";
+const SUPABASE_URL = "https://pgzsuidkgxtoxnnxodfv.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_tyDBw7jgciKdIdlFz1sBgQ_wBZPpoxd";
+const authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+let authSession = null;
 const toast = document.getElementById("toast");
 let toastTimer;
 
@@ -131,3 +135,26 @@ if ("serviceWorker" in navigator) {
 const today = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(new Date());
 document.getElementById("todayLabel").textContent = today;
 loadAppData();
+
+const authGate = document.getElementById("authGate");
+const authMessage = document.getElementById("authMessage");
+const signOutButton = document.getElementById("signOutButton");
+function setAuthenticated(session) {
+  authSession = session;
+  const active = Boolean(session?.access_token);
+  authGate.hidden = active;
+  signOutButton.hidden = !active;
+  document.querySelector("main").style.visibility = active ? "visible" : "hidden";
+  document.querySelector(".mobile-nav").style.visibility = active ? "visible" : "hidden";
+  if (active) loadAppData();
+}
+document.getElementById("loginForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const email = document.getElementById("loginEmail").value.trim();
+  authMessage.textContent = "Отправляю ссылку…";
+  const { error } = await authClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+  authMessage.textContent = error ? error.message : "Ссылка отправлена. Открой письмо и перейди по ссылке на этом устройстве.";
+});
+signOutButton.addEventListener("click", async () => { await authClient.auth.signOut(); setAuthenticated(null); });
+authClient.auth.onAuthStateChange((_event, session) => setAuthenticated(session));
+authClient.auth.getSession().then(({ data }) => setAuthenticated(data.session));
