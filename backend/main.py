@@ -45,10 +45,10 @@ async def db_get(table,owner_id,query="",owner_token: str|None=None):
     if r.status_code>=400: raise HTTPException(502,f"Database read failed: {r.text[:250]}")
     return r.json()
 
-async def db_insert(table,payload):
-    if not SUPABASE_SERVICE_ROLE_KEY: raise HTTPException(503,"Server database key is not configured yet")
+async def db_insert(table,payload,owner_token: str|None=None):
+    if not SUPABASE_SERVICE_ROLE_KEY and not owner_token: raise HTTPException(503,"Database write is not configured")
     async with httpx.AsyncClient(timeout=20) as c:
-        r=await c.post(f"{SUPABASE_URL}/rest/v1/{table}",headers={**db_headers(),"Prefer":"return=representation"},json=payload)
+        r=await c.post(f"{SUPABASE_URL}/rest/v1/{table}",headers={**db_headers(owner_token),"Prefer":"return=representation"},json=payload)
     if r.status_code>=300: raise HTTPException(502,f"Database write failed: {r.text[:250]}")
     return r.json()
 
@@ -105,7 +105,7 @@ async def push_subscribe(request:Request,authorization: str|None=Header(default=
     keys=data.get("keys") or {}
     endpoint=data.get("endpoint")
     if not endpoint or not keys.get("p256dh") or not keys.get("auth"): raise HTTPException(400,"Invalid push subscription")
-    await db_insert("push_subscriptions",{"owner_id":user["id"],"endpoint":endpoint,"p256dh":keys["p256dh"],"auth_secret":keys["auth"],"user_agent":request.headers.get("user-agent")})
+    await db_insert("push_subscriptions",{"owner_id":user["id"],"endpoint":endpoint,"p256dh":keys["p256dh"],"auth_secret":keys["auth"],"user_agent":request.headers.get("user-agent")},authorization.split(" ",1)[1])
     return {"ok":True}
 
 async def scheduled_health_scan():
@@ -116,7 +116,7 @@ async def scheduled_health_scan():
 async def run_scan(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
     if not SUPABASE_SERVICE_ROLE_KEY: raise HTTPException(503,"Background worker storage is not configured")
-    await db_insert("agent_runs",{"owner_id":user["id"],"job_type":"manual_scan","status":"queued","summary":"Scan queued; source connectors are being configured."})
+    await db_insert("agent_runs",{"owner_id":user["id"],"job_type":"manual_scan","status":"queued","summary":"Scan queued; source connectors are being configured."},authorization.split(" ",1)[1])
     return {"accepted":True,"message":"Scan queued"}
 
 class WalletInput(BaseModel):
@@ -129,7 +129,7 @@ async def add_wallet(payload:WalletInput,authorization: str|None=Header(default=
     user=await auth_user(authorization)
     address=payload.address.strip()
     if len(address)<10 or len(address)>128: raise HTTPException(400,"Invalid public wallet address")
-    rows=await db_insert("wallets",{"owner_id":user["id"],"label":payload.label[:80],"address":address,"chain":payload.chain[:40]})
+    rows=await db_insert("wallets",{"owner_id":user["id"],"label":payload.label[:80],"address":address,"chain":payload.chain[:40]},authorization.split(" ",1)[1])
     return {"item":rows[0] if rows else None}
 
 @app.get("/api/health/ready")
