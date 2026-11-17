@@ -115,7 +115,7 @@ async def scan_for_owner(owner_id, owner_token):
     inserted=await db_insert("campaigns",[{**item,"owner_id":owner_id} for item in fresh],owner_token) if fresh else []
     now=datetime.now(timezone.utc).isoformat()
     await db_insert("agent_runs",{
-        "owner_id":owner_id,"job_type":"discovery_scan","status":"completed",
+        "owner_id":owner_id,"job_type":"discovery_scan","status":"succeeded",
         "started_at":now,"finished_at":now,"items_found":len(candidates),
         "summary":f"Проверен каталог DeFiLlama. Новых кандидатов: {len(inserted)}. Награды и eligibility не подтверждены.",
         "metadata":{"source":"DeFiLlama /protocols","candidates_total":len(candidates),"new_candidates":len(inserted)}
