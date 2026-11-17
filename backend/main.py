@@ -551,7 +551,14 @@ async def add_wallet(payload:WalletInput,authorization: str|None=Header(default=
 
 @app.get("/api/health/ready")
 async def ready():
-    return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":["SUPABASE_SERVICE_ROLE_KEY","VAPID keys","owner authentication setup"] if not (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY) or not VAPID_PUBLIC_KEY else []}
+    needs=[]
+    if not (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY):
+        needs.append("SUPABASE_SECRET_KEY (or legacy service_role key) for scheduled scans")
+    if not (VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY):
+        needs.append("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY for push delivery")
+    if not OWNER_EMAIL:
+        needs.append("OWNER_EMAIL for single-owner scheduled scans")
+    return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":needs}
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
