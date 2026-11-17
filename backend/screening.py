@@ -1,10 +1,10 @@
 """Conservative screening rules for discovery, automation and economic gating."""
 import re
 
-_CASH_RE = re.compile(r"(?:\\$\\s*\\d|\\b(?:usdt|usdc|usd|eth|btc)\\b)", re.IGNORECASE)
-_REWARD_RE = re.compile(r"\\b(?:win|reward|raffle|giveaway|earn|prize|payout)\\b", re.IGNORECASE)
+_CASH_RE = re.compile(r"(?:\$\s*\d|\b(?:usdt|usdc|usd|eth|btc)\b)", re.IGNORECASE)
+_REWARD_RE = re.compile(r"\b(?:win|reward|raffle|giveaway|earn|prize|payout)\b", re.IGNORECASE)
 _HIGH_COST_RE = re.compile(
-    r"\\b(?:buy|purchase|stake|deposit|trade|trading|volume|mine|mining|gpu|hold|invest|liquidity)\\b",
+    r"\b(?:buy|purchase|stake|deposit|trade|trading|volume|mine|mining|gpu|hold|invest|liquidity)\b",
     re.IGNORECASE,
 )
 
@@ -18,10 +18,10 @@ def should_create_review_task(campaign: dict, source_name: str) -> bool:
                 _CASH_RE.search(title) and _REWARD_RE.search(title))
 
 
-_AUTOMATION_NODE_RE = re.compile(r"\\b(?:validator|node|depin|storage|bandwidth|compute)\\b", re.IGNORECASE)
-_AUTOMATION_TRADE_RE = re.compile(r"\\b(?:perp|perpetual|trading|trade volume|market making|liquidity|swap|leverage|borrow)\\b", re.IGNORECASE)
-_AUTOMATION_MANUAL_RE = re.compile(r"\\b(?:quest|check.in|daily spin|retweet|social task|discord task|manual task)\\b", re.IGNORECASE)
-_AUTOMATION_HOLD_RE = re.compile(r"\\b(?:holding|hold|balance|deposit|stake|vault|tvl)\\b", re.IGNORECASE)
+_AUTOMATION_NODE_RE = re.compile(r"\b(?:validator|node|depin|storage|bandwidth|compute)\b", re.IGNORECASE)
+_AUTOMATION_TRADE_RE = re.compile(r"\b(?:perp|perpetual|trading|trade volume|market making|liquidity|swap|leverage|borrow)\b", re.IGNORECASE)
+_AUTOMATION_MANUAL_RE = re.compile(r"\b(?:quest|check.in|daily spin|retweet|social task|discord task|manual task)\b", re.IGNORECASE)
+_AUTOMATION_HOLD_RE = re.compile(r"\b(?:holding|hold|balance|deposit|stake|vault|tvl)\b", re.IGNORECASE)
 
 
 def classify_automation_fit(campaign: dict) -> dict:
