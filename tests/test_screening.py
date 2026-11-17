@@ -52,3 +52,29 @@ class ScreeningTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_manual_review_state_survives_new_discovery_data(self):
+        incoming = {
+            "url": "https://example.org/quest",
+            "status": "discovered",
+            "eligibility": "unknown",
+            "deadline": None,
+            "reward_description": "Unverified candidate",
+            "evidence": [{"checked_at": "new"}],
+        }
+        existing = {
+            "status": "reviewed",
+            "eligibility": "unknown",
+            "deadline": "2026-11-21T23:00:00Z",
+            "reward_description": "Verified raffle, not guaranteed",
+            "ai_summary": "Manual review details",
+        }
+        from screening import preserve_review_state
+
+        merged = preserve_review_state(incoming, existing)
+        self.assertEqual(merged["status"], "reviewed")
+        self.assertEqual(merged["deadline"], "2026-11-21T23:00:00Z")
+        self.assertEqual(merged["reward_description"], "Verified raffle, not guaranteed")
+        self.assertEqual(merged["ai_summary"], "Manual review details")
+        self.assertEqual(merged["evidence"], [{"checked_at": "new"}])
