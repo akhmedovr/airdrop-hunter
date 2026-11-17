@@ -559,6 +559,9 @@ async def perform_scan(owner_id, token):
                  f"DeFiLlama protocols: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}; "
                  f"DeFiLlama Rewards: {counts['DeFiLlama Rewards']}; "
                  f"PerpDEX Points Index: {counts['PerpDEX Points Index']}; "
+                 f"Asentum watch: {counts['Asentum Validator Watch']}; "
+                 f"Push S3 watch: {counts['Push Chain Season 3 Watch']}; "
+                 f"FLOP watch: {counts['FLOP Testnet Watch']}; "
                  f"source errors: {len(errors)}.")
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,
