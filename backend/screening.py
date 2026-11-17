@@ -42,6 +42,28 @@ _REVIEW_FIELDS = (
 )
 
 
+
+_CAMPAIGN_DEFAULTS = {
+    "deadline": None,
+    "official_rules_url": None,
+    "confidence": None,
+    "estimated_reward_usd": None,
+    "region_restrictions": [],
+    "kyc_required": None,
+    "anti_sybil_notes": None,
+    "cost_estimate_usd": 0,
+    "reward_description": None,
+    "ai_summary": None,
+}
+
+
+def normalize_campaign_record(record: dict) -> dict:
+    """Ensure every campaign row has the same PostgREST upsert key set."""
+    normalized = dict(record or {})
+    for field, default in _CAMPAIGN_DEFAULTS.items():
+        normalized.setdefault(field, default.copy() if isinstance(default, list) else default)
+    return normalized
+
 def preserve_review_state(incoming: dict, existing: dict) -> dict:
     """Preserve only explicit manual decisions; refresh ordinary discovery records."""
     merged = dict(incoming or {})
