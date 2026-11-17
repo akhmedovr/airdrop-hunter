@@ -1,4 +1,4 @@
-import os, time, json, logging
+import os, time, json, logging, asyncio
 from datetime import datetime, timezone
 from typing import Any
 import httpx
@@ -51,6 +51,120 @@ async def db_insert(table,payload,owner_token: str|None=None):
         r=await c.post(f"{SUPABASE_URL}/rest/v1/{table}",headers={**db_headers(owner_token),"Prefer":"return=representation"},json=payload)
     if r.status_code>=300: raise HTTPException(502,f"Database write failed: {r.text[:250]}")
     return r.json()
+
+async def db_upsert(table,payload,conflict,owner_token):
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise HTTPException(503,"Database is not configured")
+    if not payload:
+        return []
+    async with httpx.AsyncClient(timeout=25) as c:
+        r=await c.post(
+            f"{SUPABASE_URL}/rest/v1/{table}?on_conflict={conflict}",
+            headers={**db_headers(owner_token),"Prefer":"resolution=merge-duplicates,return=representation"},
+            json=payload,
+        )
+    if r.status_code>=300:
+        raise HTTPException(502,f"Database upsert failed ({table}): {r.text[:250]}")
+    return r.json()
+
+async def db_patch(table,filters,payload,owner_token):
+    query="&".join(f"{key}=eq.{value}" for key,value in filters.items())
+    async with httpx.AsyncClient(timeout=20) as c:
+        r=await c.patch(
+            f"{SUPABASE_URL}/rest/v1/{table}?{query}",
+            headers={**db_headers(owner_token),"Prefer":"return=representation"},
+            json=payload,
+        )
+    if r.status_code>=300:
+        raise HTTPException(502,f"Database update failed ({table}): {r.text[:250]}")
+    return r.json()
+
+async def fetch_defillama_candidates():
+    url="https://api.llama.fi/protocols"
+    async with httpx.AsyncClient(timeout=25,follow_redirects=True) as c:
+        response=await c.get(url)
+        response.raise_for_status()
+        protocols=response.json()
+    if not isinstance(protocols,list):
+        raise RuntimeError("DeFiLlama returned an unexpected response")
+    blocked={"cex","chain","prediction market"}
+    candidates=[]
+    for item in protocols:
+        chains=item.get("chains") or []
+        if not any("polygon" in str(chain).lower() for chain in chains):
+            continue
+        if str(item.get("symbol") or "").strip() not in ("","-"):
+            continue
+        category=str(item.get("category") or "").strip().lower()
+        if not category or category in blocked:
+            continue
+        tvl=item.get("tvl") or 0
+        if not isinstance(tvl,(int,float)) or not 1_000_000 <= tvl <= 500_000_000:
+            continue
+        slug=item.get("slug") or ""
+        project_url=item.get("url") or (f"https://defillama.com/protocol/{slug}" if slug else "")
+        if not project_url:
+            continue
+        candidates.append({
+            "title":item.get("name") or "Unknown project",
+            "project_name":item.get("name") or "Unknown project",
+            "url":project_url,
+            "chain":"Polygon",
+            "reward_description":"Возможный кандидат для исследования. Факт аирдропа или награды не подтверждён.",
+            "confidence":0.15,
+            "evidence":[{
+                "source":"DeFiLlama",
+                "source_url":f"https://defillama.com/protocol/{slug}" if slug else url,
+                "checked_at":datetime.now(timezone.utc).isoformat(),
+                "signals":{"tvl_usd":tvl,"category":category,"token_symbol":item.get("symbol") or None},
+            }],
+            "ai_summary":"Это только сигнал для дальнейшей проверки. Отсутствие тикера не доказывает наличие будущего аирдропа.",
+            "anti_sybil_notes":"Правила проекта, eligibility, KYC и anti-Sybil не проверены.",
+        })
+    candidates.sort(key=lambda item: item["evidence"][0]["signals"]["tvl_usd"],reverse=True)
+    return candidates[:40]
+
+async def fetch_galxe_campaigns():
+    endpoint="https://graphigo.prd.galaxy.eco/query"
+    query="""query GetCampaigns($first: Int!, $listType: ListType) {
+      campaigns(input: {first: $first, listType: $listType}) {
+        list { id name status space { alias } }
+      }
+    }"""
+    campaigns={}
+    async with httpx.AsyncClient(timeout=25,follow_redirects=True) as c:
+        for list_type in ("Newest","Trending"):
+            response=await c.post(endpoint,json={
+                "query":query,
+                "variables":{"first":30,"listType":list_type},
+            })
+            response.raise_for_status()
+            data=response.json()
+            if data.get("errors"):
+                raise RuntimeError("Galxe GraphQL returned an error")
+            rows=((data.get("data") or {}).get("campaigns") or {}).get("list") or []
+            for item in rows:
+                if item.get("status")!="Active" or not item.get("id") or not item.get("name"):
+                    continue
+                alias=((item.get("space") or {}).get("alias") or "").strip()
+                path=f"{alias}/{item['id']}" if alias else str(item["id"])
+                campaigns[item["id"]]={
+                    "title":item["name"],
+                    "project_name":alias or "Galxe",
+                    "url":f"https://app.galxe.com/quest/{path}",
+                    "chain":None,
+                    "reward_description":"Публичная активная кампания. Наличие токеновой награды и eligibility не подтверждено.",
+                    "confidence":0.35,
+                    "evidence":[{
+                        "source":"Galxe",
+                        "campaign_id":item["id"],
+                        "observed_status":item["status"],
+                        "checked_at":datetime.now(timezone.utc).isoformat(),
+                    }],
+                    "ai_summary":"Найдено активное публичное задание. Перед выполнением нужно проверить официальные правила, доступность региона, KYC, сроки и расходы.",
+                    "anti_sybil_notes":"Не обходить KYC, географические ограничения, CAPTCHA и anti-Sybil правила.",
+                }
+    return list(campaigns.values())
 
 @app.on_event("startup")
 async def startup():
@@ -115,9 +229,88 @@ async def scheduled_health_scan():
 @app.post("/api/agent/run-scan")
 async def run_scan(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    if not SUPABASE_SERVICE_ROLE_KEY: raise HTTPException(503,"Background worker storage is not configured")
-    await db_insert("agent_runs",{"owner_id":user["id"],"job_type":"manual_scan","status":"queued","summary":"Scan queued; source connectors are being configured."},authorization.split(" ",1)[1])
-    return {"accepted":True,"message":"Scan queued"}
+    token=authorization.split(" ",1)[1]
+    owner_id=user["id"]
+    run_rows=await db_insert("agent_runs",{
+        "owner_id":owner_id,
+        "job_type":"manual_scan",
+        "status":"running",
+        "started_at":datetime.now(timezone.utc).isoformat(),
+        "summary":"Проверяю публичные источники DeFiLlama и Galxe.",
+    },token)
+    run_id=run_rows[0]["id"] if run_rows else None
+    try:
+        source_rows=await db_upsert("sources",[
+            {"owner_id":owner_id,"name":"DeFiLlama","source_type":"protocol_discovery","base_url":"https://defillama.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"Galxe","source_type":"campaign_discovery","base_url":"https://app.galxe.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+        ],"owner_id,name",token)
+        source_ids={row["name"]:row["id"] for row in source_rows}
+        results=await asyncio.gather(
+            fetch_defillama_candidates(),
+            fetch_galxe_campaigns(),
+            return_exceptions=True,
+        )
+        errors=[]
+        records=[]
+        counts={"DeFiLlama":0,"Galxe":0}
+        for source_name,result in zip(("DeFiLlama","Galxe"),results):
+            if isinstance(result,Exception):
+                errors.append(f"{source_name}: {str(result)[:180]}")
+                continue
+            counts[source_name]=len(result)
+            for item in result:
+                item.update({
+                    "owner_id":owner_id,
+                    "source_id":source_ids.get(source_name),
+                    "status":"discovered",
+                    "eligibility":"unknown",
+                    "region_restrictions":[],
+                    "cost_estimate_usd":0,
+                    "official_rules_url":item["url"] if source_name=="Galxe" else None,
+                    "discovered_at":datetime.now(timezone.utc).isoformat(),
+                    "checked_at":datetime.now(timezone.utc).isoformat(),
+                })
+                records.append(item)
+        saved=await db_upsert("campaigns",records,"owner_id,url",token) if records else []
+        if errors and not saved:
+            final_status="failed"
+        else:
+            final_status="succeeded"
+        summary=f"Найдено записей: {len(saved)}. DeFiLlama: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}."
+        await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
+            "status":final_status,
+            "finished_at":datetime.now(timezone.utc).isoformat(),
+            "items_found":len(saved),
+            "summary":summary,
+            "error":"; ".join(errors) if errors else None,
+            "metadata":{"source_counts":counts,"errors":errors},
+        },token)
+        if saved:
+            await db_insert("notifications",{
+                "owner_id":owner_id,
+                "title":"Проверка источников завершена",
+                "body":summary+" Все найденные записи требуют отдельной проверки eligibility и награды.",
+                "category":"discovery",
+            },token)
+        return {
+            "accepted":True,
+            "status":final_status,
+            "items_found":len(saved),
+            "source_counts":counts,
+            "errors":errors,
+            "message":summary,
+        }
+    except Exception as error:
+        if run_id:
+            try:
+                await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
+                    "status":"failed",
+                    "finished_at":datetime.now(timezone.utc).isoformat(),
+                    "error":str(error)[:500],
+                },token)
+            except Exception:
+                log.exception("Could not mark scan run as failed")
+        raise
 
 class WalletInput(BaseModel):
     label:str
