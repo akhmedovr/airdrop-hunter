@@ -171,11 +171,11 @@ async def fetch_perp_points_programs():
 
 
 async def fetch_asentum_watch():
-    urls=("https://www.asentum.com/roadmap","https://www.asentum.com/docs/investors/growth-fund")
+    urls=("https://www.asentum.com/roadmap","https://www.asentum.com/docs/investors/growth-fund","https://www.asentum.com/ecosystem")
     async with httpx.AsyncClient(timeout=25,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
         responses=await asyncio.gather(*(client.get(url) for url in urls))
         for response in responses: response.raise_for_status()
-        return parse_asentum_watch(responses[0].text,responses[1].text)
+        return parse_asentum_watch(responses[0].text,responses[1].text,responses[2].text)
 
 async def fetch_push_season3_watch():
     urls=("https://portal.push.org/rewards","https://push.org/blog/push-rewards-program/")
