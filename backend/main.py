@@ -12,6 +12,7 @@ log=logging.getLogger("airdrop-hunter")
 SUPABASE_URL=os.getenv("SUPABASE_URL","").rstrip("/")
 SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY","")
 SUPABASE_SERVICE_ROLE_KEY=os.getenv("SUPABASE_SERVICE_ROLE_KEY","")
+OWNER_EMAIL=os.getenv("OWNER_EMAIL","").strip().lower()
 VAPID_PUBLIC_KEY=os.getenv("VAPID_PUBLIC_KEY","")
 VAPID_PRIVATE_KEY=os.getenv("VAPID_PRIVATE_KEY","")
 VAPID_SUBJECT=os.getenv("VAPID_SUBJECT","mailto:admin@example.com")
@@ -26,7 +27,9 @@ async def auth_user(authorization: str|None):
     async with httpx.AsyncClient(timeout=12) as c:
         r=await c.get(f"{SUPABASE_URL}/auth/v1/user",headers={"apikey":SUPABASE_ANON_KEY,"Authorization":f"Bearer {token}"})
     if r.status_code!=200: raise HTTPException(401,"Invalid or expired session")
-    return r.json()
+    user=r.json()
+    if OWNER_EMAIL and (user.get("email") or "").strip().lower()!=OWNER_EMAIL: raise HTTPException(403,"This is a private, single-owner application")
+    return user
 
 def db_headers(owner_token: str|None=None):
     h={"apikey":SUPABASE_ANON_KEY,"Content-Type":"application/json"}
