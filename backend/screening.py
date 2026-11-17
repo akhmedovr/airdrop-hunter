@@ -56,7 +56,14 @@ def assess_economic_gate(campaign: dict, automation: dict | None = None) -> dict
     eligibility = str(item.get("eligibility") or "unknown").strip().lower()
     rules_url = item.get("official_rules_url")
     reward = item.get("estimated_reward_usd")
-    cost = item.get("cost_estimate_usd")
+    raw_cost = item.get("cost_estimate_usd")
+    evidence_rows = item.get("evidence") if isinstance(item.get("evidence"), list) else []
+    cost_verified = item.get("cost_estimate_verified") is True or any(
+        isinstance(entry, dict) and entry.get("cost_estimate_verified") is True
+        for entry in evidence_rows
+    )
+    # The DB's legacy default is 0; it is not evidence that operating costs are zero.
+    cost = raw_cost if cost_verified else None
     capital = item.get("required_capital_usd")
     try:
         reward = float(reward) if reward is not None else None
@@ -123,7 +130,7 @@ _CAMPAIGN_DEFAULTS = {
     "region_restrictions": [],
     "kyc_required": None,
     "anti_sybil_notes": None,
-    "cost_estimate_usd": None,
+    "cost_estimate_usd": 0,
     "reward_description": None,
     "ai_summary": None,
 }
