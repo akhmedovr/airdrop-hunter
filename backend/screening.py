@@ -43,8 +43,11 @@ _REVIEW_FIELDS = (
 
 
 def preserve_review_state(incoming: dict, existing: dict) -> dict:
-    """Refresh discovery evidence without overwriting a user's reviewed campaign state."""
+    """Preserve only explicit manual decisions; refresh ordinary discovery records."""
     merged = dict(incoming or {})
+    existing_status = str((existing or {}).get("status") or "").lower()
+    if existing_status not in {"reviewed", "rejected", "realized"}:
+        return merged
     for field in _REVIEW_FIELDS:
         if field in (existing or {}):
             merged[field] = existing[field]
