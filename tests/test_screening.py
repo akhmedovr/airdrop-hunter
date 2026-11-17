@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from screening import classify_automation_fit, normalize_campaign_record, preserve_review_state, should_create_review_task
+from screening import assess_economic_gate, classify_automation_fit, normalize_campaign_record, preserve_review_state, should_create_review_task
 
 
 class ScreeningTests(unittest.TestCase):
@@ -54,8 +54,42 @@ class ScreeningTests(unittest.TestCase):
         galxe = normalize_campaign_record({"title": "B", "source_id": "2", "deadline": None})
         self.assertEqual(set(defillama), set(galxe))
         self.assertEqual(defillama["region_restrictions"], [])
-        self.assertEqual(defillama["cost_estimate_usd"], 0)
+        self.assertIsNone(defillama["cost_estimate_usd"])
         self.assertIsNone(defillama["estimated_reward_usd"])
+
+    def test_economic_gate_fails_closed_when_reward_cost_and_eligibility_unknown(self):
+        gate = assess_economic_gate({
+            "title": "AIOZ DePIN node rewards",
+            "reward_description": "Run a node and earn AIOZ",
+            "eligibility": "unknown",
+        })
+        self.assertEqual(gate["gate"], "blocked_pending_evidence")
+        self.assertIsNone(gate["estimated_cost_usd"])
+        self.assertIsNone(gate["estimated_net_reward_usd"])
+        self.assertIn("total_cost_unknown", gate["blockers"])
+        self.assertIn("eligibility_not_confirmed", gate["blockers"])
+
+    def test_economic_gate_requires_human_approval_even_with_positive_known_net(self):
+        gate = assess_economic_gate({
+            "title": "Storage node",
+            "reward_description": "Provide storage uptime",
+            "eligibility": "eligible",
+            "official_rules_url": "https://example.org/terms",
+            "estimated_reward_usd": 10,
+            "cost_estimate_usd": 2,
+            "required_capital_usd": 0,
+        })
+        self.assertEqual(gate["gate"], "eligible_for_human_approval")
+        self.assertEqual(gate["estimated_net_reward_usd"], 8)
+        self.assertEqual(gate["blockers"], [])
+
+    def test_trading_overrides_node_keyword_in_automation_classifier(self):
+        result = classify_automation_fit({
+            "title": "Validator node",
+            "reward_description": "Rewards require trading volume and liquidity",
+        })
+        self.assertEqual(result["mode"], "active_trading_or_liquidity")
+        self.assertEqual(result["fit"], "low")
 
     def test_unreviewed_discovery_data_is_refreshed(self):
         incoming = {
