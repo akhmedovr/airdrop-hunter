@@ -27,10 +27,10 @@ def should_create_review_task(campaign: dict, source_name: str) -> bool:
 
 
 
-_AUTOMATION_NODE_RE = re.compile(r"\\b(?:validator|node|depin|storage|bandwidth|compute)\\b", re.IGNORECASE)
-_AUTOMATION_TRADE_RE = re.compile(r"\\b(?:perp|perpetual|trading|trade volume|market making|liquidity|swap|leverage|borrow)\\b", re.IGNORECASE)
-_AUTOMATION_MANUAL_RE = re.compile(r"\\b(?:quest|check.in|daily spin|retweet|social task|discord task|manual task)\\b", re.IGNORECASE)
-_AUTOMATION_HOLD_RE = re.compile(r"\\b(?:holding|hold|balance|deposit|stake|vault|tvl)\\b", re.IGNORECASE)
+_AUTOMATION_NODE_RE = re.compile(r"\b(?:validator|node|depin|storage|bandwidth|compute)\\b", re.IGNORECASE)
+_AUTOMATION_TRADE_RE = re.compile(r"\b(?:perp|perpetual|trading|trade volume|market making|liquidity|swap|leverage|borrow)\\b", re.IGNORECASE)
+_AUTOMATION_MANUAL_RE = re.compile(r"\b(?:quest|check.in|daily spin|retweet|social task|discord task|manual task)\\b", re.IGNORECASE)
+_AUTOMATION_HOLD_RE = re.compile(r"\b(?:holding|hold|balance|deposit|stake|vault|tvl)\\b", re.IGNORECASE)
 
 
 def classify_automation_fit(campaign: dict) -> dict:
