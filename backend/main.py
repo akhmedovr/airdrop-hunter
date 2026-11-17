@@ -8,6 +8,7 @@ from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
+from reward_sources import parse_defillama_rewards_html, parse_perp_programs
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -146,6 +147,22 @@ async def fetch_defillama_candidates():
         })
     candidates.sort(key=lambda item: item["evidence"][0]["signals"]["tvl_usd"],reverse=True)
     return candidates[:40]
+
+async def fetch_defillama_rewards():
+    url="https://defillama.com/rewards"
+    async with httpx.AsyncClient(timeout=35,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
+        response=await client.get(url)
+        response.raise_for_status()
+        return parse_defillama_rewards_html(response.text)
+
+
+async def fetch_perp_points_programs():
+    url="https://perpdexairdrops.com/data/programs.json"
+    async with httpx.AsyncClient(timeout=30,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
+        response=await client.get(url)
+        response.raise_for_status()
+        return parse_perp_programs(response.json())
+
 
 async def fetch_galxe_campaigns():
     endpoint="https://graphigo.prd.galaxy.eco/query"
@@ -422,17 +439,22 @@ async def perform_scan(owner_id, token):
         source_rows=await db_upsert("sources",[
             {"owner_id":owner_id,"name":"DeFiLlama","source_type":"api","base_url":"https://defillama.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
             {"owner_id":owner_id,"name":"Galxe","source_type":"platform","base_url":"https://app.galxe.com","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"DeFiLlama Rewards","source_type":"api","base_url":"https://defillama.com/rewards","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"PerpDEX Points Index","source_type":"api","base_url":"https://perpdexairdrops.com/data/programs.json","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
         ],"owner_id,name",token)
         source_ids={row["name"]:row["id"] for row in source_rows}
+        source_names=("DeFiLlama","Galxe","DeFiLlama Rewards","PerpDEX Points Index")
         results=await asyncio.gather(
             fetch_defillama_candidates(),
             fetch_galxe_campaigns(),
+            fetch_defillama_rewards(),
+            fetch_perp_points_programs(),
             return_exceptions=True,
         )
         errors=[]
         records=[]
-        counts={"DeFiLlama":0,"Galxe":0}
-        for source_name,result in zip(("DeFiLlama","Galxe"),results):
+        counts={name:0 for name in source_names}
+        for source_name,result in zip(source_names,results):
             if isinstance(result,Exception):
                 errors.append(f"{source_name}: {str(result)[:180]}")
                 continue
