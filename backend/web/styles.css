@@ -70,3 +70,60 @@ h1,h2,h3,p{margin-top:0}h1{font:800 clamp(34px,5vw,56px)/1.06 Manrope,sans-serif
 .auth-card input:focus{border-color:var(--accent)}
 .auth-card button{width:100%;padding:14px}
 .auth-message{min-height:18px;font-size:11px!important;color:var(--accent)!important;margin:14px 0 0}
+
+
+/* Live data panels */
+.record-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.record-card {
+  padding: 18px;
+  min-width: 0;
+}
+.record-card h3 {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.record-card p {
+  margin: 10px 0 0;
+  color: var(--muted, #9aa8bb);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.record-meta {
+  display: block;
+  color: var(--muted, #9aa8bb);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.record-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: var(--accent, #8eb9ff);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.wallet-form {
+  display: grid;
+  gap: 10px;
+}
+.wallet-form input,
+.wallet-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--border, rgba(255,255,255,.12));
+  border-radius: 12px;
+  background: var(--surface-2, #172235);
+  color: inherit;
+  font: inherit;
+}
+.form-note {
+  margin: 12px 0 0;
+  color: var(--muted, #9aa8bb);
+  font-size: 12px;
+  line-height: 1.5;
+}
