@@ -132,3 +132,12 @@ async def add_wallet(payload:WalletInput,authorization: str|None=Header(default=
 @app.get("/api/health/ready")
 async def ready():
     return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":["SUPABASE_SERVICE_ROLE_KEY","VAPID keys","owner authentication setup"] if not SUPABASE_SERVICE_ROLE_KEY or not VAPID_PUBLIC_KEY else []}
+
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+@app.get("/", include_in_schema=False)
+async def web_home():
+    return FileResponse("web/index.html")
+
+app.mount("/", StaticFiles(directory="web", html=True), name="web")
