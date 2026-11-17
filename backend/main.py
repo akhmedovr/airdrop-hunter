@@ -6,6 +6,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from pywebpush import webpush, WebPushException
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -17,6 +18,16 @@ VAPID_PUBLIC_KEY=os.getenv("VAPID_PUBLIC_KEY","")
 VAPID_PRIVATE_KEY=os.getenv("VAPID_PRIVATE_KEY","")
 VAPID_SUBJECT=os.getenv("VAPID_SUBJECT","mailto:admin@example.com")
 scheduler=AsyncIOScheduler(timezone="UTC")
+RPC_ENDPOINTS={
+    "polygon":"https://polygon-bor-rpc.publicnode.com",
+    "ethereum":"https://ethereum-rpc.publicnode.com",
+    "base":"https://base-rpc.publicnode.com",
+    "arbitrum":"https://arbitrum-one-rpc.publicnode.com",
+    "optimism":"https://optimism-rpc.publicnode.com",
+    "linea":"https://linea-rpc.publicnode.com",
+    "scroll":"https://scroll-rpc.publicnode.com",
+}
+NATIVE_SYMBOLS={"polygon":"POL","ethereum":"ETH","base":"ETH","arbitrum":"ETH","optimism":"ETH","linea":"ETH","scroll":"ETH"}
 app=FastAPI(title="Airdrop Hunter API",version="2.0.0")
 app.add_middleware(CORSMiddleware,allow_origins=os.getenv("CORS_ORIGINS","*").split(","),allow_credentials=False,allow_methods=["GET","POST","PATCH","DELETE","OPTIONS"],allow_headers=["Authorization","Content-Type"])
 
@@ -153,16 +164,17 @@ async def fetch_galxe_campaigns():
                     "project_name":alias or "Galxe",
                     "url":f"https://app.galxe.com/quest/{path}",
                     "chain":None,
-                    "reward_description":"Публичная активная кампания. Наличие токеновой награды и eligibility не подтверждено.",
+                    "reward_description":"Действующая кампания Galxe Quest. Последний день участия — 5 декабря 2026; последний день получения наград — 15 декабря 2026. Наличие токеновой награды и eligibility не подтверждено.",
                     "confidence":0.35,
                     "evidence":[{
-                        "source":"Galxe",
+                        "source":"Galxe (sunsetting)",
                         "campaign_id":item["id"],
                         "observed_status":item["status"],
                         "checked_at":datetime.now(timezone.utc).isoformat(),
+                        "official_notice":"https://help.galxe.com/en/articles/18361711-galxe-is-integrating-into-gravity-what-you-need-to-know",
                     }],
-                    "ai_summary":"Найдено активное публичное задание. Перед выполнением нужно проверить официальные правила, доступность региона, KYC, сроки и расходы.",
-                    "anti_sybil_notes":"Не обходить KYC, географические ограничения, CAPTCHA и anti-Sybil правила.",
+                    "ai_summary":"Galxe Quest сворачивается: новые кампании создавать нельзя с 9 ноября 2026. Существующие кампании доступны до 5 декабря 2026, получение наград — до 15 декабря 2026. Проверить точные условия до любых действий.",
+                    "anti_sybil_notes":"Не обходить KYC, географические ограничения, CAPTCHA и anti-Sybil правила. Учитывать объявленное закрытие Galxe Quest.",
                 }
     return list(campaigns.values())
 
@@ -178,7 +190,18 @@ async def shutdown():
 
 @app.get("/api/health")
 async def health():
-    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"time":datetime.now(timezone.utc).isoformat()}
+    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"scanner_mode":"manual","database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"push_configured":bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),"time":datetime.now(timezone.utc).isoformat()}
+
+@app.post("/api/profile/bootstrap")
+async def profile_bootstrap(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    token=authorization.split(" ",1)[1]
+    await db_upsert("profiles",{
+        "id":user["id"],
+        "display_name":str((user.get("user_metadata") or {}).get("name") or "Airdrop Hunter Owner")[:100],
+        "updated_at":datetime.now(timezone.utc).isoformat(),
+    },"id",token)
+    return {"ok":True}
 
 @app.get("/api/dashboard")
 async def dashboard(authorization: str|None=Header(default=None)):
@@ -194,6 +217,13 @@ async def notifications(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization); rows=await db_get("notifications",user["id"],"select=*&order=created_at.desc&limit=100",authorization.split(" ",1)[1])
     return {"items":rows,"unread_count":sum(1 for x in rows if not x["read_at"])}
 
+@app.patch("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id:str,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    rows=await db_patch("notifications",{"id":notification_id,"owner_id":user["id"]},{"read_at":datetime.now(timezone.utc).isoformat()},authorization.split(" ",1)[1])
+    if not rows: raise HTTPException(404,"Notification not found")
+    return {"item":rows[0]}
+
 @app.get("/api/opportunities")
 async def opportunities(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
@@ -204,10 +234,64 @@ async def tasks(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
     return {"items":await db_get("tasks",user["id"],"select=*&order=priority.desc,due_at.asc&limit=100",authorization.split(" ",1)[1])}
 
+@app.get("/api/plan/today")
+async def plan_today(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    rows=await db_get("tasks",user["id"],"select=*&status=in.(todo,ready,in_progress,waiting_user)&order=priority.desc,due_at.asc&limit=10",authorization.split(" ",1)[1])
+    return {"engine":"rules","ai_enabled":False,"items":rows,"note":"План отсортирован по приоритету и срокам. LLM-планирование включится после отдельной настройки OpenAI API."}
+
+class TaskStatusInput(BaseModel):
+    status:str
+
+@app.patch("/api/tasks/{task_id}")
+async def update_task(task_id:str,payload:TaskStatusInput,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    if payload.status not in {"todo","ready","in_progress","waiting_user","completed","skipped","blocked"}:
+        raise HTTPException(400,"Invalid task status")
+    token=authorization.split(" ",1)[1]
+    now=datetime.now(timezone.utc).isoformat()
+    data={"status":payload.status,"updated_at":now}
+    if payload.status=="completed": data["completed_at"]=now
+    rows=await db_patch("tasks",{"id":task_id,"owner_id":user["id"]},data,token)
+    if not rows: raise HTTPException(404,"Task not found")
+    await db_insert("task_events",{"owner_id":user["id"],"task_id":task_id,"event_type":"status_changed","details":{"status":payload.status,"source":"PWA"}},token)
+    return {"item":rows[0]}
+
+async def read_wallet_balance(client, wallet):
+    chain=str(wallet.get("chain") or "").strip().lower()
+    endpoint=RPC_ENDPOINTS.get(chain)
+    if not endpoint:
+        return {**wallet,"native_balance":None,"balance_symbol":None,"balance_status":"unsupported"}
+    address=str(wallet.get("address") or "")
+    if not (len(address)==42 and address.startswith("0x")):
+        return {**wallet,"native_balance":None,"balance_symbol":NATIVE_SYMBOLS[chain],"balance_status":"invalid_address"}
+    try:
+        response=await client.post(endpoint,json={
+            "jsonrpc":"2.0","id":1,"method":"eth_getBalance","params":[address,"latest"]
+        })
+        response.raise_for_status()
+        payload=response.json()
+        if payload.get("error") or not payload.get("result"):
+            raise RuntimeError("RPC returned no balance")
+        wei=int(payload["result"],16)
+        return {
+            **wallet,
+            "native_balance":f"{wei/10**18:.6f}",
+            "balance_symbol":NATIVE_SYMBOLS[chain],
+            "balance_status":"ok",
+            "balance_checked_at":datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as error:
+        log.warning("Wallet balance read failed for %s: %s",wallet.get("id"),str(error)[:120])
+        return {**wallet,"native_balance":None,"balance_symbol":NATIVE_SYMBOLS[chain],"balance_status":"unavailable"}
+
 @app.get("/api/wallets")
 async def wallets(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    return {"items":await db_get("wallets",user["id"],"select=*&order=created_at.desc",authorization.split(" ",1)[1])}
+    rows=await db_get("wallets",user["id"],"select=*&order=created_at.desc",authorization.split(" ",1)[1])
+    async with httpx.AsyncClient(timeout=15,follow_redirects=True) as client:
+        items=await asyncio.gather(*(read_wallet_balance(client,row) for row in rows))
+    return {"items":items}
 
 @app.get("/api/push/public-key")
 async def push_key():
@@ -222,18 +306,41 @@ async def push_subscribe(request:Request,authorization: str|None=Header(default=
     await db_insert("push_subscriptions",{"owner_id":user["id"],"endpoint":endpoint,"p256dh":keys["p256dh"],"auth_secret":keys["auth"],"user_agent":request.headers.get("user-agent")},authorization.split(" ",1)[1])
     return {"ok":True}
 
-async def scheduled_health_scan():
-    # Worker heartbeat only until official-source connectors and service credentials are configured.
-    log.info("Scheduled scan heartbeat: connectors not yet configured; no wallet or transaction actions are performed.")
+async def send_push_to_owner(owner_id, title, body, target_url="/", owner_token=None):
+    if not VAPID_PUBLIC_KEY or not VAPID_PRIVATE_KEY:
+        return 0
+    try:
+        subscriptions=await db_get("push_subscriptions",owner_id,"select=endpoint,p256dh,auth_secret",owner_token)
+    except Exception:
+        log.exception("Could not load push subscriptions")
+        return 0
+    payload=json.dumps({"title":title,"body":body,"url":target_url},ensure_ascii=False)
+    async def deliver(subscription):
+        try:
+            await asyncio.to_thread(
+                webpush,
+                subscription_info={
+                    "endpoint":subscription["endpoint"],
+                    "keys":{"p256dh":subscription["p256dh"],"auth":subscription["auth_secret"]},
+                },
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims={"sub":VAPID_SUBJECT},
+            )
+            return True
+        except WebPushException as error:
+            log.warning("Web Push delivery failed: %s",str(error)[:180])
+            return False
+        except Exception as error:
+            log.warning("Web Push error: %s",str(error)[:180])
+            return False
+    results=await asyncio.gather(*(deliver(item) for item in subscriptions))
+    return sum(1 for result in results if result)
 
-@app.post("/api/agent/run-scan")
-async def run_scan(authorization: str|None=Header(default=None)):
-    user=await auth_user(authorization)
-    token=authorization.split(" ",1)[1]
-    owner_id=user["id"]
+async def perform_scan(owner_id, token):
     run_rows=await db_insert("agent_runs",{
         "owner_id":owner_id,
-        "job_type":"manual_scan",
+        "job_type":"scheduled_scan" if token==SUPABASE_SERVICE_ROLE_KEY else "manual_scan",
         "status":"running",
         "started_at":datetime.now(timezone.utc).isoformat(),
         "summary":"Проверяю публичные источники DeFiLlama и Galxe.",
@@ -271,46 +378,91 @@ async def run_scan(authorization: str|None=Header(default=None)):
                     "checked_at":datetime.now(timezone.utc).isoformat(),
                 })
                 records.append(item)
+        existing_campaign_rows=await db_get("campaigns",owner_id,"select=url",token)
+        existing_urls={str(row.get("url") or "").rstrip("/").lower() for row in existing_campaign_rows}
+        unique_records={}
+        for record in records:
+            key=str(record.get("url") or "").rstrip("/").lower()
+            if key: unique_records[key]=record
+        records=list(unique_records.values())
         saved=await db_upsert("campaigns",records,"owner_id,url",token) if records else []
+        new_saved=[row for row in saved if str(row.get("url") or "").rstrip("/").lower() not in existing_urls]
+        if new_saved:
+            existing_task_rows=await db_get("tasks",owner_id,"select=campaign_id",token)
+            task_campaign_ids={row.get("campaign_id") for row in existing_task_rows if row.get("campaign_id")}
+            review_tasks=[]
+            for campaign in new_saved:
+                if campaign.get("id") in task_campaign_ids: continue
+                is_galxe=any(str(evidence.get("source") or "").startswith("Galxe") for evidence in (campaign.get("evidence") or []))
+                note=("Учитывай закрытие Galxe Quest: участие до 5 декабря 2026, получение наград до 15 декабря 2026. " if is_galxe else "")
+                review_tasks.append({
+                    "owner_id":owner_id,"campaign_id":campaign["id"],
+                    "title":"Проверить условия: "+str(campaign.get("title") or campaign.get("project_name") or "кампания")[:130],
+                    "description":note+"Проверить официальный сайт и правила, географические ограничения, KYC, anti-Sybil, сроки, тип награды и обязательные расходы. Не подключать кошелёк и не подписывать транзакции на этапе проверки.",
+                    "task_url":campaign.get("official_rules_url") or campaign.get("url"),
+                    "status":"todo","requires_user_action":True,"priority":40,"estimated_minutes":8,
+                })
+            if review_tasks:
+                await db_insert("tasks",review_tasks,token)
         if errors and not saved:
             final_status="failed"
         else:
             final_status="succeeded"
-        summary=f"Найдено записей: {len(saved)}. DeFiLlama: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}."
+        summary=f"Проверено кандидатов: {len(saved)}; новых: {len(new_saved)}. DeFiLlama: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}."
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,
             "finished_at":datetime.now(timezone.utc).isoformat(),
             "items_found":len(saved),
             "summary":summary,
             "error":"; ".join(errors) if errors else None,
-            "metadata":{"source_counts":counts,"errors":errors},
+            "metadata":{"source_counts":counts,"errors":errors,"new_candidates":len(new_saved)},
         },token)
-        if saved:
+        if new_saved:
+            title="Новые кандидаты и задачи проверки"
+            body=summary+" Награды и eligibility не подтверждены; сначала проверь условия."
             await db_insert("notifications",{
-                "owner_id":owner_id,
-                "title":"Проверка источников завершена",
-                "body":summary+" Все найденные записи требуют отдельной проверки eligibility и награды.",
-                "category":"discovery",
+                "owner_id":owner_id,"title":title,"body":body,"category":"discovery",
             },token)
+            await send_push_to_owner(owner_id,title,body,"/",token)
         return {
-            "accepted":True,
-            "status":final_status,
-            "items_found":len(saved),
-            "source_counts":counts,
-            "errors":errors,
-            "message":summary,
+            "accepted":True,"status":final_status,"items_found":len(saved),
+            "new_candidates":len(new_saved),"source_counts":counts,
+            "errors":errors,"message":summary,
         }
     except Exception as error:
         if run_id:
             try:
                 await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
-                    "status":"failed",
-                    "finished_at":datetime.now(timezone.utc).isoformat(),
+                    "status":"failed","finished_at":datetime.now(timezone.utc).isoformat(),
                     "error":str(error)[:500],
                 },token)
             except Exception:
                 log.exception("Could not mark scan run as failed")
         raise
+
+async def scheduled_health_scan():
+    if not SUPABASE_SERVICE_ROLE_KEY or not OWNER_EMAIL:
+        log.info("Scheduled scan skipped: server key or owner email is not configured.")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response=await client.get(
+                f"{SUPABASE_URL}/rest/v1/profiles?select=id&limit=1",
+                headers=db_headers(SUPABASE_SERVICE_ROLE_KEY),
+            )
+            response.raise_for_status()
+            profiles=response.json()
+        if not profiles:
+            log.info("Scheduled scan skipped: owner profile has not been initialized by a login yet.")
+            return
+        await perform_scan(profiles[0]["id"],SUPABASE_SERVICE_ROLE_KEY)
+    except Exception:
+        log.exception("Scheduled discovery scan failed")
+
+@app.post("/api/agent/run-scan")
+async def run_scan(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    return await perform_scan(user["id"],authorization.split(" ",1)[1])
 
 class WalletInput(BaseModel):
     label:str
