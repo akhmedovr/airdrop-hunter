@@ -72,10 +72,6 @@ class RewardSourceParserTests(unittest.TestCase):
         )
         self.assertEqual(rows, [])
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_asentum_watch_requires_official_incentivized_testnet_and_allocation(self):
         rows = parse_asentum_watch("<body>Incentivized Testnet is live</body>", "<body>Phase 3 Incentivized Testnet 60M ASE</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
         self.assertEqual(len(rows), 1)
@@ -94,3 +90,7 @@ if __name__ == "__main__":
         rows = parse_flop_testnet_watch("<body>Public testnet target 2026-11-24 validator requirements</body>", "<body>FLOP public testnet</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
         self.assertEqual(len(rows), 1)
         self.assertIn("No server rental", rows[0]["reward_description"])
+
+
+if __name__ == "__main__":
+    unittest.main()
