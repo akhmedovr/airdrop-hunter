@@ -500,7 +500,10 @@ async def perform_scan(owner_id, token):
             final_status="failed"
         else:
             final_status="succeeded"
-        summary=f"Проверено кандидатов: {len(saved)}; новых: {len(new_saved)}. DeFiLlama: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}."
+        summary=(f"Проверено кандидатов: {len(saved)}; новых: {len(new_saved)}. "
+                 f"DeFiLlama protocols: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}; "
+                 f"DeFiLlama Rewards: {counts['DeFiLlama Rewards']}; "
+                 f"PerpDEX Points Index: {counts['PerpDEX Points Index']}.")
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,
             "finished_at":datetime.now(timezone.utc).isoformat(),
