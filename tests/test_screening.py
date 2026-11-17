@@ -1,10 +1,10 @@
-"""Tests for conservative reward-task screening."""
+"""Tests for conservative reward-task screening and review-state preservation."""
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from screening import should_create_review_task
+from screening import preserve_review_state, should_create_review_task
 
 
 class ScreeningTests(unittest.TestCase):
@@ -49,11 +49,6 @@ class ScreeningTests(unittest.TestCase):
             "Unknown source",
         ))
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_manual_review_state_survives_new_discovery_data(self):
         incoming = {
             "url": "https://example.org/quest",
@@ -70,7 +65,6 @@ if __name__ == "__main__":
             "reward_description": "Verified raffle, not guaranteed",
             "ai_summary": "Manual review details",
         }
-        from screening import preserve_review_state
 
         merged = preserve_review_state(incoming, existing)
         self.assertEqual(merged["status"], "reviewed")
@@ -78,3 +72,7 @@ if __name__ == "__main__":
         self.assertEqual(merged["reward_description"], "Verified raffle, not guaranteed")
         self.assertEqual(merged["ai_summary"], "Manual review details")
         self.assertEqual(merged["evidence"], [{"checked_at": "new"}])
+
+
+if __name__ == "__main__":
+    unittest.main()
