@@ -153,7 +153,13 @@ async def fetch_defillama_rewards():
     async with httpx.AsyncClient(timeout=35,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
         response=await client.get(url)
         response.raise_for_status()
-        return parse_defillama_rewards_html(response.text)
+        records=parse_defillama_rewards_html(response.text)
+        if not records:
+            raise RuntimeError(
+                f"Rewards page returned HTTP 200 but no parseable Live reward rows "
+                f"(response_bytes={len(response.content)}); source requires parser refresh"
+            )
+        return records
 
 
 async def fetch_perp_points_programs():
@@ -525,7 +531,8 @@ async def perform_scan(owner_id, token):
         summary=(f"Проверено кандидатов: {len(saved)}; новых: {len(new_saved)}. "
                  f"DeFiLlama protocols: {counts['DeFiLlama']}; Galxe: {counts['Galxe']}; "
                  f"DeFiLlama Rewards: {counts['DeFiLlama Rewards']}; "
-                 f"PerpDEX Points Index: {counts['PerpDEX Points Index']}.")
+                 f"PerpDEX Points Index: {counts['PerpDEX Points Index']}; "
+                 f"source errors: {len(errors)}.")
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,
             "finished_at":datetime.now(timezone.utc).isoformat(),
