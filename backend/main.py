@@ -52,6 +52,82 @@ async def db_insert(table,payload,owner_token: str|None=None):
     if r.status_code>=300: raise HTTPException(502,f"Database write failed: {r.text[:250]}")
     return r.json()
 
+async def db_patch(table, owner_id, row_id, payload, owner_token):
+    async with httpx.AsyncClient(timeout=20) as client:
+        r=await client.patch(
+            f"{SUPABASE_URL}/rest/v1/{table}?id=eq.{row_id}&owner_id=eq.{owner_id}",
+            headers={**db_headers(owner_token),"Prefer":"return=representation"},
+            json=payload,
+        )
+    if r.status_code>=300: raise HTTPException(502,f"Database update failed: {r.text[:250]}")
+    return r.json()
+
+async def discover_defillama_candidates():
+    url="https://api.llama.fi/protocols"
+    allowed={"dexes","lending","yield","liquid staking","bridge","derivatives","cdp","farm","launchpad","yield aggregator","restaking","liquid restaking","perpetuals","options","insurance","oracle","nft marketplace","nft lending","rwa"}
+    async with httpx.AsyncClient(timeout=35,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
+        response=await client.get(url)
+        response.raise_for_status()
+        protocols=response.json()
+    if not isinstance(protocols,list): raise HTTPException(502,"DeFiLlama вернул неожиданный формат данных")
+    found=[]
+    for item in protocols:
+        chains=item.get("chains") or []
+        symbol=(item.get("symbol") or "").strip()
+        category=(item.get("category") or "").strip().lower()
+        tvl=item.get("tvl") or 0
+        if not any("polygon" in str(chain).lower() for chain in chains): continue
+        if symbol not in ("","-") or category not in allowed: continue
+        if not isinstance(tvl,(int,float)) or tvl<500_000 or tvl>500_000_000: continue
+        slug=(item.get("slug") or "").strip()
+        if not slug: continue
+        llama_url=f"https://defillama.com/protocol/{slug}"
+        found.append({
+            "title":str(item.get("name") or slug)[:180],
+            "project_name":str(item.get("name") or slug)[:180],
+            "url":llama_url,
+            "chain":"Polygon",
+            "status":"discovered",
+            "eligibility":"unknown",
+            "region_restrictions":[],
+            "kyc_required":None,
+            "reward_description":"Награда и наличие аирдропа не подтверждены. Это только кандидат для проверки официальных источников.",
+            "confidence":0.15,
+            "cost_estimate_usd":0,
+            "official_rules_url":None,
+            "evidence":[{
+                "source":"DeFiLlama",
+                "url":llama_url,
+                "observed_at":datetime.now(timezone.utc).isoformat(),
+                "signal":"Протокол присутствует в каталоге DeFiLlama, работает в Polygon, TVL от $500 тыс. до $500 млн, тикер токена не указан.",
+                "limitation":"Сигнал не подтверждает аирдроп, eligibility, доступность в стране или будущую стоимость награды."
+            }],
+            "ai_summary":"Непроверенный кандидат. Требуется отдельная проверка сайта проекта, официальных правил, географических ограничений, KYC, сроков и затрат."
+        })
+    found.sort(key=lambda x: x["title"].lower())
+    return found[:40]
+
+async def scan_for_owner(owner_id, owner_token):
+    candidates=await discover_defillama_candidates()
+    existing=await db_get("campaigns",owner_id,"select=url,project_name",owner_token)
+    known={str(row.get("url") or "").rstrip("/").lower() for row in existing}
+    fresh=[item for item in candidates if item["url"].rstrip("/").lower() not in known]
+    inserted=await db_insert("campaigns",[{**item,"owner_id":owner_id} for item in fresh],owner_token) if fresh else []
+    now=datetime.now(timezone.utc).isoformat()
+    await db_insert("agent_runs",{
+        "owner_id":owner_id,"job_type":"discovery_scan","status":"completed",
+        "started_at":now,"finished_at":now,"items_found":len(candidates),
+        "summary":f"Проверен каталог DeFiLlama. Новых кандидатов: {len(inserted)}. Награды и eligibility не подтверждены.",
+        "metadata":{"source":"DeFiLlama /protocols","candidates_total":len(candidates),"new_candidates":len(inserted)}
+    },owner_token)
+    if inserted:
+        await db_insert("notifications",{
+            "owner_id":owner_id,"title":"Новые кандидаты для проверки",
+            "body":f"Найдено {len(inserted)} новых кандидатов в Polygon. Это не подтверждённые аирдропы — условия требуют проверки.",
+            "category":"discovery","target_url":"/"
+        },owner_token)
+    return {"items_found":len(candidates),"candidates_added":len(inserted),"items":inserted}
+
 @app.on_event("startup")
 async def startup():
     if os.getenv("ENABLE_SCHEDULER","true").lower()=="true":
@@ -115,9 +191,33 @@ async def scheduled_health_scan():
 @app.post("/api/agent/run-scan")
 async def run_scan(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
-    if not SUPABASE_SERVICE_ROLE_KEY: raise HTTPException(503,"Background worker storage is not configured")
-    await db_insert("agent_runs",{"owner_id":user["id"],"job_type":"manual_scan","status":"queued","summary":"Scan queued; source connectors are being configured."},authorization.split(" ",1)[1])
-    return {"accepted":True,"message":"Scan queued"}
+    try:
+        result=await scan_for_owner(user["id"],authorization.split(" ",1)[1])
+    except httpx.HTTPError as error:
+        log.exception("DeFiLlama scan failed")
+        raise HTTPException(502,"Не удалось получить данные DeFiLlama") from error
+    return {"accepted":True,**result}
+
+class TaskStatusInput(BaseModel):
+    status:str
+
+@app.patch("/api/tasks/{task_id}")
+async def update_task(task_id:str,payload:TaskStatusInput,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    if payload.status not in {"todo","ready","in_progress","waiting_user","completed","skipped","blocked"}:
+        raise HTTPException(400,"Invalid task status")
+    data={"status":payload.status,"updated_at":datetime.now(timezone.utc).isoformat()}
+    if payload.status=="completed": data["completed_at"]=datetime.now(timezone.utc).isoformat()
+    rows=await db_patch("tasks",user["id"],task_id,data,authorization.split(" ",1)[1])
+    if not rows: raise HTTPException(404,"Task not found")
+    return {"item":rows[0]}
+
+@app.patch("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id:str,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    rows=await db_patch("notifications",user["id"],notification_id,{"read_at":datetime.now(timezone.utc).isoformat()},authorization.split(" ",1)[1])
+    if not rows: raise HTTPException(404,"Notification not found")
+    return {"item":rows[0]}
 
 class WalletInput(BaseModel):
     label:str
