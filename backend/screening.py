@@ -144,13 +144,23 @@ def normalize_campaign_record(record: dict) -> dict:
             for entry in evidence
         ]
     summary = str(normalized.get("ai_summary") or "").strip()
-    marker = "Economic gate (conservative):"
-    if marker not in summary:
+    notes = []
+    automation_marker = "Automation fit (heuristic):"
+    if automation_marker not in summary:
+        notes.append(
+            f"{automation_marker} {automation['fit']} | mode={automation['mode']} | "
+            f"user_action={automation['user_action']} | capital={automation['capital_mode']}. "
+            f"{automation['reason']}"
+        )
+    economic_marker = "Economic gate (conservative):"
+    if economic_marker not in summary:
         blockers = ", ".join(economics["blockers"]) or "none"
-        note = (f"{marker} {economics['gate']} | automation={automation['fit']} | "
-                f"net_estimate_usd={economics['estimated_net_reward_usd']} | blockers={blockers}. "
-                "Unknown values are not assumed to be zero.")
-        normalized["ai_summary"] = (summary + " " + note).strip()
+        notes.append(
+            f"{economic_marker} {economics['gate']} | "
+            f"net_estimate_usd={economics['estimated_net_reward_usd']} | blockers={blockers}. "
+            "Unknown values are not assumed to be zero."
+        )
+    normalized["ai_summary"] = (summary + " " + " ".join(notes)).strip()
     return normalized
 
 
