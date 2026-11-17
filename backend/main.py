@@ -13,6 +13,7 @@ log=logging.getLogger("airdrop-hunter")
 SUPABASE_URL=os.getenv("SUPABASE_URL","").rstrip("/")
 SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY","")
 SUPABASE_SERVICE_ROLE_KEY=os.getenv("SUPABASE_SERVICE_ROLE_KEY","")
+SUPABASE_SECRET_KEY=os.getenv("SUPABASE_SECRET_KEY","")
 OWNER_EMAIL=os.getenv("OWNER_EMAIL","").strip().lower()
 VAPID_PUBLIC_KEY=os.getenv("VAPID_PUBLIC_KEY","")
 VAPID_PRIVATE_KEY=os.getenv("VAPID_PRIVATE_KEY","")
@@ -44,8 +45,18 @@ async def auth_user(authorization: str|None):
 
 def db_headers(owner_token: str|None=None):
     h={"apikey":SUPABASE_ANON_KEY,"Content-Type":"application/json"}
-    bearer=owner_token or SUPABASE_SERVICE_ROLE_KEY
-    if bearer: h["Authorization"]=f"Bearer {bearer}"
+    # New Supabase sb_secret_* keys are API keys, not JWTs: send them only in apikey.
+    if owner_token and (owner_token.startswith("sb_secret_") or owner_token==SUPABASE_SECRET_KEY):
+        h["apikey"]=owner_token
+        return h
+    if owner_token:
+        h["Authorization"]=f"Bearer {owner_token}"
+        return h
+    if SUPABASE_SECRET_KEY:
+        h["apikey"]=SUPABASE_SECRET_KEY
+        return h
+    if SUPABASE_SERVICE_ROLE_KEY:
+        h["Authorization"]=f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
     return h
 
 async def db_get(table,owner_id,query="",owner_token: str|None=None):
@@ -57,7 +68,7 @@ async def db_get(table,owner_id,query="",owner_token: str|None=None):
     return r.json()
 
 async def db_insert(table,payload,owner_token: str|None=None):
-    if not SUPABASE_SERVICE_ROLE_KEY and not owner_token: raise HTTPException(503,"Database write is not configured")
+    if not (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY) and not owner_token: raise HTTPException(503,"Database write is not configured")
     async with httpx.AsyncClient(timeout=20) as c:
         r=await c.post(f"{SUPABASE_URL}/rest/v1/{table}",headers={**db_headers(owner_token),"Prefer":"return=representation"},json=payload)
     if r.status_code>=300: raise HTTPException(502,f"Database write failed: {r.text[:250]}")
@@ -190,7 +201,7 @@ async def shutdown():
 
 @app.get("/api/health")
 async def health():
-    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"scanner_mode":"manual","database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY),"push_configured":bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),"time":datetime.now(timezone.utc).isoformat()}
+    return {"status":"ok","service":"airdrop-hunter","scheduler_running":scheduler.running,"scanner_mode":"manual","database_configured":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"worker_write_enabled":bool(SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY),"push_configured":bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),"time":datetime.now(timezone.utc).isoformat()}
 
 @app.post("/api/profile/bootstrap")
 async def profile_bootstrap(authorization: str|None=Header(default=None)):
@@ -400,7 +411,7 @@ async def send_push_to_owner(owner_id, title, body, target_url="/", owner_token=
 async def perform_scan(owner_id, token):
     run_rows=await db_insert("agent_runs",{
         "owner_id":owner_id,
-        "job_type":"scheduled_scan" if token==SUPABASE_SERVICE_ROLE_KEY else "manual_scan",
+        "job_type":"scheduled_scan" if token in (SUPABASE_SERVICE_ROLE_KEY,SUPABASE_SECRET_KEY) else "manual_scan",
         "status":"running",
         "started_at":datetime.now(timezone.utc).isoformat(),
         "summary":"Проверяю публичные источники DeFiLlama и Galxe.",
@@ -501,21 +512,22 @@ async def perform_scan(owner_id, token):
         raise
 
 async def scheduled_health_scan():
-    if not SUPABASE_SERVICE_ROLE_KEY or not OWNER_EMAIL:
-        log.info("Scheduled scan skipped: server key or owner email is not configured.")
+    privileged_key=SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
+    if not privileged_key or not OWNER_EMAIL:
+        log.info("Scheduled scan skipped: Supabase secret/service key or owner email is not configured.")
         return
     try:
         async with httpx.AsyncClient(timeout=20) as client:
             response=await client.get(
                 f"{SUPABASE_URL}/rest/v1/profiles?select=id&limit=1",
-                headers=db_headers(SUPABASE_SERVICE_ROLE_KEY),
+                headers=db_headers(privileged_key),
             )
             response.raise_for_status()
             profiles=response.json()
         if not profiles:
             log.info("Scheduled scan skipped: owner profile has not been initialized by a login yet.")
             return
-        await perform_scan(profiles[0]["id"],SUPABASE_SERVICE_ROLE_KEY)
+        await perform_scan(profiles[0]["id"],privileged_key)
     except Exception:
         log.exception("Scheduled discovery scan failed")
 
@@ -539,7 +551,7 @@ async def add_wallet(payload:WalletInput,authorization: str|None=Header(default=
 
 @app.get("/api/health/ready")
 async def ready():
-    return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":["SUPABASE_SERVICE_ROLE_KEY","VAPID keys","owner authentication setup"] if not SUPABASE_SERVICE_ROLE_KEY or not VAPID_PUBLIC_KEY else []}
+    return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":["SUPABASE_SERVICE_ROLE_KEY","VAPID keys","owner authentication setup"] if not (SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY) or not VAPID_PUBLIC_KEY else []}
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
