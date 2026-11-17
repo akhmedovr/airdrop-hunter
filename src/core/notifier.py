@@ -37,7 +37,7 @@ EMOJI = {
 
 def is_notifier_ready() -> bool:
     """Проверяет, настроены ли токен и chat_id в .env."""
-    return bool(settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)
+    return bool(settings.LEGACY_TELEGRAM_NOTIFICATIONS_ENABLED and settings.TELEGRAM_BOT_TOKEN and settings.TELEGRAM_CHAT_ID)
 
 
 @retry(
