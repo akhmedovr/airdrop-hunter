@@ -147,7 +147,21 @@ async function loadTasks() {
     root.replaceChildren();
     items.forEach((item) => {
       const meta = ["Статус: " + item.status, item.due_at ? "Срок: " + formatDate(item.due_at) : ""].filter(Boolean).join(" · ");
-      root.append(recordCard(item.title, item.description, meta, item.task_url));
+      const card=recordCard(item.title, item.description, meta, item.task_url);
+      if (["todo","ready","in_progress","waiting_user"].includes(item.status)) {
+        const button=document.createElement("button");
+        button.type="button"; button.className="secondary-button"; button.textContent="Отметить выполненным";
+        button.addEventListener("click",async()=>{
+          button.disabled=true;
+          try {
+            await request("/api/tasks/"+encodeURIComponent(item.id),{method:"PATCH",body:JSON.stringify({status:"completed"})});
+            showToast("Задание отмечено выполненным.");
+            await loadAppData();
+          } catch(error) {button.disabled=false;showToast("Не удалось обновить задание: "+error.message);}
+        });
+        card.append(button);
+      }
+      root.append(card);
     });
   } catch (error) {
     renderEmpty(root, "!", "Не удалось загрузить задания", error.message);
@@ -166,7 +180,8 @@ async function loadWallets() {
     }
     root.replaceChildren();
     items.forEach((item) => {
-      root.append(recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение", null));
+      const balance=item.balance_status==="ok" ? "Баланс: "+item.native_balance+" "+item.balance_symbol : (item.balance_status==="unsupported" ? "Баланс этой сети пока не поддержан" : "Баланс временно недоступен");
+      root.append(recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение · " + balance, null));
     });
   } catch (error) {
     renderEmpty(root, "!", "Не удалось загрузить кошельки", error.message);
@@ -186,10 +201,65 @@ async function loadNotifications() {
     }
     root.replaceChildren();
     items.forEach((item) => {
-      root.append(recordCard(item.title, item.body, [item.category, formatDate(item.created_at)].filter(Boolean).join(" · "), item.target_url));
+      const card=recordCard(item.title, item.body, [item.category, formatDate(item.created_at), item.read_at ? "Прочитано" : "Новое"].filter(Boolean).join(" · "), item.target_url);
+      if (!item.read_at) {
+        const button=document.createElement("button");
+        button.type="button"; button.className="text-button"; button.textContent="Отметить прочитанным";
+        button.addEventListener("click",async()=>{
+          button.disabled=true;
+          try {
+            await request("/api/notifications/"+encodeURIComponent(item.id)+"/read",{method:"PATCH"});
+            await loadNotifications();
+          } catch(error) {button.disabled=false;showToast("Не удалось обновить уведомление: "+error.message);}
+        });
+        card.append(button);
+      }
+      root.append(card);
     });
+    const recent=document.getElementById("recentEventsList");
+    if (recent) {
+      const latest=items.slice(0,3);
+      recent.replaceChildren();
+      if (!latest.length) {
+        recent.className="empty-state compact";
+        recent.innerHTML='<span class="empty-icon">◷</span><strong>Событий пока нет</strong><p>Новые события появятся здесь.</p>';
+      } else {
+        recent.className="record-list";
+        latest.forEach(item=>recent.append(recordCard(item.title,item.body,formatDate(item.created_at),item.target_url)));
+      }
+    }
   } catch (error) {
     renderEmpty(root, "!", "Не удалось загрузить уведомления", error.message);
+  }
+}
+
+async function loadPlan() {
+  const root=document.getElementById("planList");
+  if (!root) return;
+  try {
+    const data=await request("/api/plan/today");
+    const items=data.items||[];
+    root.replaceChildren();
+    if (!items.length) {
+      root.className="empty-state";
+      root.innerHTML='<span class="empty-icon">⌁</span><strong>План пока не сформирован</strong><p>После проверки кампаний появятся задания. Сейчас доступна сортировка по правилам; AI API ещё не настроен.</p>';
+      return;
+    }
+    root.className="record-list";
+    items.forEach((item,index)=>{
+      const row=document.createElement("article");
+      row.className="record-card";
+      const heading=document.createElement("h3");
+      heading.textContent=(index+1)+". "+(item.title||"Задание");
+      const meta=document.createElement("small");
+      meta.className="record-meta";
+      meta.textContent="Приоритет "+item.priority+" · "+(item.estimated_minutes||"—")+" мин · "+item.status;
+      row.append(heading,meta);
+      root.append(row);
+    });
+  } catch(error) {
+    root.className="empty-state";
+    root.textContent="Не удалось сформировать план: "+error.message;
   }
 }
 
@@ -201,13 +271,13 @@ async function loadAppData() {
     const health = await request("/api/health");
     connection.classList.add("online");
     connection.innerHTML = "<i></i> Сервер подключён";
-    status.textContent = health.status === "ok" ? "Система на связи" : "Сервер отвечает";
+    status.textContent = health.status === "ok" ? "API на связи · сканирование по запросу" : "Сервер отвечает";
     const dashboard = await request("/api/dashboard");
     document.getElementById("metricCampaigns").textContent = dashboard.active_campaigns ?? "—";
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
     document.getElementById("metricClaimable").textContent = formatMoney(dashboard.claimable_rewards_usd);
     document.getElementById("metricPnl").textContent = formatMoney(dashboard.realized_pnl_usd);
-    await Promise.all([loadOpportunities(), loadTasks(), loadWallets(), loadNotifications()]);
+    await Promise.all([loadOpportunities(), loadTasks(), loadWallets(), loadNotifications(), loadPlan()]);
   } catch (error) {
     connection.classList.remove("online");
     connection.innerHTML = "<i></i> Сервер не подключён";
@@ -257,7 +327,7 @@ document.getElementById("scanButton")?.addEventListener("click", async (event) =
   try {
     const result = await request("/api/agent/run-scan", { method: "POST" });
     showToast(result.message || "Проверка завершена.");
-    await Promise.all([loadOpportunities(), loadNotifications(), loadAppData()]);
+    await loadAppData();
   } catch (error) {
     showToast("Сканирование не выполнено: " + error.message);
   } finally {
