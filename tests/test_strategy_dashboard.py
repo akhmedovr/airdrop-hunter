@@ -68,3 +68,22 @@ def test_dashboard_sort_handles_missing_evidence_timestamps():
           "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
     ], [], [], [])
     assert len(result["tracks"]["no_capital"]) == 2
+
+
+def test_galxe_quest_is_not_misclassified_as_unattended_node():
+    result = build_strategy_dashboard([{
+        "title": "Follow Lighthouse Storage",
+        "url": "https://app.galxe.com/quest/Lighthouse/GC3K5tZeFb",
+        "evidence": [{
+            "source": "Galxe (sunsetting)",
+            "url": "https://app.galxe.com/quest/Lighthouse/GC3K5tZeFb",
+            "opportunity_assessment": {
+                "activity_mode": "unattended_node",
+                "required_capital_usd": None,
+                "status": "blocked",
+                "blockers": ["manual_action_required"],
+            },
+        }],
+    }], [], [], [])
+    assert len(result["tracks"]["no_capital"]) == 0
+    assert len(result["tracks"]["unclassified"]) == 1
