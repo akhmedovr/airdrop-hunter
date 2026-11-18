@@ -57,3 +57,14 @@ def test_accounting_only_attributes_explicit_track_tags():
     assert capital["realized_rewards_usd"] == 7
     assert capital["realized_net_usd"] == 6
     assert result["accounting"]["unassigned_records"] == 1
+
+
+def test_dashboard_sort_handles_missing_evidence_timestamps():
+    result = build_strategy_dashboard([
+        {"title": "dated", "evidence": [{"url": "https://example.org/a",
+          "checked_at": "2026-11-18T10:00:00+00:00",
+          "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
+        {"title": "undated", "evidence": [{"url": "https://example.org/b",
+          "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
+    ], [], [], [])
+    assert len(result["tracks"]["no_capital"]) == 2
