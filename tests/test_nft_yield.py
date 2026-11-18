@@ -33,3 +33,14 @@ def test_every_candidate_has_source_and_review_reason():
         assert item["why_not_buy"]
         assert item["country"] == "RU"
         assert item["budget_limit_rub"] == 5000
+
+
+
+def test_hens_is_flagged_as_manual_high_risk_not_passive_buy():
+    feed = get_nft_yield_opportunities()
+    hens = next(item for item in feed["items"] if item["id"] == "hens-farm")
+    assert hens["reward_asset"] == "HEGG + GLD"
+    assert "5 HEGG/день" in hens["reward_rate"]
+    assert "ежеднев" in hens["why_not_buy"]
+    assert hens["capital_rub"] is None
+    assert hens["buy_allowed"] is False
