@@ -425,7 +425,7 @@ async def read_wallet_balance(client, wallet):
 
 async def fetch_native_prices(client):
     try:
-        response=await client.get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:polygon-ecosystem-token")
+        response=await client.get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:polygon-ecosystem-token,coingecko:solana")
         response.raise_for_status()
         return (response.json() or {}).get("coins") or {}
     except Exception as error:
@@ -441,7 +441,7 @@ async def wallets(authorization: str|None=Header(default=None)):
         items=await asyncio.gather(*(read_wallet_balance(client,row) for row in rows))
         prices=await fetch_native_prices(client)
     now=datetime.now(timezone.utc)
-    price_ids={"polygon":"coingecko:polygon-ecosystem-token"}
+    price_ids={"polygon":"coingecko:polygon-ecosystem-token","solana":"coingecko:solana"}
     for chain in ("ethereum","base","arbitrum","optimism","linea","scroll"):
         price_ids[chain]="coingecko:ethereum"
     for item in items:
@@ -542,7 +542,26 @@ async def wallet_activity(wallet_id:str,authorization: str|None=Header(default=N
                         "method":row.get("method"),
                         "explorer_url":f"https://etherscan.io/tx/{tx_hash}" if tx_hash else None,
                     })
-                return {"chain":chain,"address":address,"items":items,"source":"Blockscout"}
+                transfer_response=await client.get(base+"/token-transfers")
+                transfer_response.raise_for_status()
+                transfer_payload=transfer_response.json()
+                transfers=[]
+                for row in transfer_payload.get("items") or []:
+                    tx_hash=row.get("transaction_hash")
+                    token=row.get("token") or {}
+                    transfers.append({
+                        "hash":tx_hash,
+                        "timestamp":row.get("timestamp"),
+                        "from":(row.get("from") or {}).get("hash"),
+                        "to":(row.get("to") or {}).get("hash"),
+                        "amount":row.get("total"),
+                        "token_symbol":token.get("symbol"),
+                        "token_name":token.get("name"),
+                        "token_type":token.get("type"),
+                        "token_address":token.get("address_hash"),
+                        "explorer_url":f"https://etherscan.io/tx/{tx_hash}" if tx_hash else None,
+                    })
+                return {"chain":chain,"address":address,"items":items,"token_transfers":transfers,"source":"Blockscout"}
             raise HTTPException(400,"Transaction history is not configured for this chain")
         except HTTPException:
             raise
