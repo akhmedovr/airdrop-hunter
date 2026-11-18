@@ -265,3 +265,52 @@ class ScreeningTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_flop_agent_path_overrides_validator_and_holding_keywords(self):
+        result = classify_automation_fit({
+            "title": "FLOP Network — no-deposit agent testnet watch",
+            "project_name": "FLOP Network",
+            "reward_description": (
+                "DID identity key, faucet credits and inference requests. "
+                "Future allocation is locked and unlocks through mainnet inference."
+            ),
+        })
+        self.assertEqual(result["mode"], "agent_usage")
+        self.assertEqual(result["fit"], "medium")
+        self.assertEqual(result["capital_mode"], "no_upfront_fiat_specified")
+
+
+    def test_flop_agent_record_normalizes_into_no_capital_blocked_candidate(self):
+        normalized = normalize_campaign_record({
+            "title": "FLOP Network — no-deposit agent testnet watch",
+            "project_name": "FLOP Network",
+            "url": "https://docs.flop.network/docs/testnet-and-timeline",
+            "official_rules_url": "https://docs.flop.network/docs/airdrop-and-testnet-conversion",
+            "eligibility": "unknown",
+            "country_eligibility": "unknown",
+            "reward_kind": "unknown",
+            "reward_value_verified": False,
+            "cost_estimate_verified": False,
+            "costs_complete": False,
+            "activity_mode": "agent_usage",
+            "required_capital_usd": 0,
+            "lockup_days": None,
+            "reward_description": (
+                "DID identity key, faucet credits and inference requests. "
+                "Future allocation is locked and unlocks through mainnet inference."
+            ),
+            "evidence": [{
+                "source": "FLOP official docs",
+                "url": "https://docs.flop.network/docs/testnet-and-timeline",
+                "official": True,
+                "checked_at": "2026-11-18T09:24:00+00:00",
+            }],
+        })
+        assessment = normalized["evidence"][0]["opportunity_assessment"]
+        self.assertEqual(assessment["activity_mode"], "agent_usage")
+        self.assertEqual(assessment["required_capital_usd"], 0)
+        self.assertEqual(assessment["status"], "blocked")
+        self.assertIn("country_eligibility_not_confirmed", assessment["blockers"])
+        self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
+        self.assertNotIn("not_unattended_low_touch", assessment["blockers"])
