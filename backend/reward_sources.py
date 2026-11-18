@@ -514,7 +514,7 @@ def parse_aioz_depin_watch(cli_html, gui_html, checked_at=None):
     }]
 
 
-def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network_html='', checked_at=None):
+def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network_html='', price_json='', checked_at=None):
     """Track Acurast's no-stake base compute pool without inventing per-device earnings."""
     rewards = _visible_text(rewards_html).lower()
     provider = _visible_text(provider_html).lower()
@@ -556,6 +556,13 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
     equal_share_1_5h = round(network_pool_month / active_1_5h, 4) if active_1_5h else None
     equal_share_24h = round(network_pool_month / active_24h, 4) if active_24h else None
     heartbeat_fee_scenario = round(0.0013 * 48 * 30, 4)
+    price_match = re.search(r'"usd"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)', _visible_text(price_json), re.IGNORECASE)
+    acu_price_usd = float(price_match.group(1)) if price_match else None
+    equal_share_usd_1_5h = round(equal_share_1_5h * acu_price_usd, 4) if equal_share_1_5h and acu_price_usd else None
+    equal_share_usd_24h = round(equal_share_24h * acu_price_usd, 4) if equal_share_24h and acu_price_usd else None
+    heartbeat_fee_usd = round(heartbeat_fee_scenario * acu_price_usd, 4) if acu_price_usd else None
+    net_equal_share_usd_1_5h = round(equal_share_usd_1_5h - heartbeat_fee_usd, 4) if equal_share_usd_1_5h is not None and heartbeat_fee_usd is not None else None
+    net_equal_share_usd_24h = round(equal_share_usd_24h - heartbeat_fee_usd, 4) if equal_share_usd_24h is not None and heartbeat_fee_usd is not None else None
     estimate_text = (
         f"Community dashboard equal-share baseline: {equal_share_24h}–{equal_share_1_5h} ACU/month "
         f"using 24h/1.5h active counts {active_24h}/{active_1_5h}. This is an arithmetic benchmark, "
@@ -579,6 +586,14 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
             "equal_share_acu_month_24h": equal_share_24h,
             "heartbeat_fee_scenario_acu_month": heartbeat_fee_scenario,
             "fee_scenario_assumption": "48 transactions/day at 0.0013 ACU each; docs do not state that every heartbeat is a separate transaction",
+            "acu_price_usd": acu_price_usd,
+            "price_source": "CoinGecko simple price API",
+            "price_checked_at": now.isoformat() if acu_price_usd else None,
+            "equal_share_usd_month_1_5h": equal_share_usd_1_5h,
+            "equal_share_usd_month_24h": equal_share_usd_24h,
+            "heartbeat_fee_scenario_usd_month": heartbeat_fee_usd,
+            "net_equal_share_usd_month_1_5h": net_equal_share_usd_1_5h,
+            "net_equal_share_usd_month_24h": net_equal_share_usd_24h,
         })
     return [{
         "title": "Acurast — no-stake smartphone compute rewards",
@@ -630,9 +645,11 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
         }] + dashboard_evidence,
         "ai_summary": (
             "Best current no-stake hardware-fit lead, not approved for participation yet. "
-            f"{estimate_text} A fee scenario of 48 transactions/day at 0.0013 ACU each is "
-            f"{heartbeat_fee_scenario} ACU/month, but the docs do not explicitly equate every heartbeat to one transaction. "
-            "A compatible existing phone may contribute compute without buying hardware or staking. Verify "
+            f"{estimate_text} Current ACU/USD market snapshot: {acu_price_usd}; equal-share gross monthly USD baseline "
+            f"{equal_share_usd_24h}–{equal_share_usd_1_5h}; 48-transaction/day fee scenario {heartbeat_fee_usd} USD/month. "
+            f"Estimated net equal-share scenario {net_equal_share_usd_24h}–{net_equal_share_usd_1_5h} USD/month, "
+            "not a personal payout forecast. A compatible existing phone may contribute compute without buying "
+            "hardware or staking. Verify "
             "Russian-resident eligibility and initial fee coverage before onboarding. Do not use VPN or false "
             "residency details. Do not buy ACU to start."
         ),
