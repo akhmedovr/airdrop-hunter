@@ -117,7 +117,7 @@ async def fetch_collection_best_listings(slug: str, limit: int = 50) -> dict[str
         item = _normalise_listing(row, slug)
         if not item:
             continue
-        identity = (item["chain"], item["contract"], item["token_id"], item["currency"], item["price"])
+        identity = (item["chain"], item["contract"], item["token_id"], item["currency"])
         if identity in seen:
             continue
         seen.add(identity)
