@@ -69,7 +69,7 @@ def _project(campaign: dict) -> tuple[str, dict]:
         track = "unclassified"
     elif is_galxe and explicit_capital_action:
         track = "capital"
-    elif mode in {"unattended_node", "storage_compute_bandwidth", "agent_usage"} and (required_number is None or required_number == 0):
+    elif mode in {"unattended_node", "storage_compute_bandwidth", "agent_usage"} and required_number == 0:
         track = "no_capital"
     elif mode in {"passive_holding", "trading_liquidity"} or (required_number is not None and required_number > 0):
         track = "capital"
