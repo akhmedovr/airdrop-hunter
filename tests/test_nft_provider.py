@@ -26,6 +26,18 @@ class NftProviderTests(unittest.TestCase):
                 import asyncio
                 asyncio.run(fetch_collection_best_listings("../bad"))
 
+    def test_duplicate_token_listings_are_deduplicated_per_currency(self):
+        from backend.nft_provider import _normalise_listing
+        first = {"asset":{"contract":"0xabc","identifier":"7"},"chain":"ethereum","status":"ACTIVE","price_per_item":{"currency":"ETH","decimals":18,"value":"1000000000000000000"}}
+        second = {"asset":{"contract":"0xabc","identifier":"7"},"chain":"ethereum","status":"ACTIVE","price_per_item":{"currency":"ETH","decimals":18,"value":"1100000000000000000"}}
+        normalized = [_normalise_listing(row, "demo") for row in (first, second)]
+        unique = {}
+        for item in normalized:
+            identity = (item["chain"], item["contract"], item["token_id"], item["currency"])
+            unique.setdefault(identity, item)
+        self.assertEqual(len(unique), 1)
+        self.assertEqual(next(iter(unique.values()))["price"], "1")
+
     def test_private_keys_are_not_part_of_public_result(self):
         row = {
             "asset": {"contract": "0xabc", "identifier": "7"},
