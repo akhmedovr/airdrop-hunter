@@ -1,6 +1,9 @@
+import sys
 import unittest
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from opportunity_engine import assess_opportunity
 
 
