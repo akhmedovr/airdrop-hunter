@@ -37,14 +37,14 @@
       });
       card.append(stats);
       const details = node("div","nft-yield-details");
-      [["Механика",item.reward_type],["Условия блокировки",item.lockup],["Выход",item.exit],["Риски",item.risk],["Статус России",item.country_eligibility],["Почему пока не покупать",item.why_not_buy]].forEach(([k,v]) => {
+      [["Механика",item.reward_type],["Цена входа",item.capital_native || money(item.capital_rub)],["Условия блокировки",item.lockup],["Выход",item.exit],["Риски",item.risk],["Статус России",item.country_eligibility],["Почему пока не покупать",item.why_not_buy]].forEach(([k,v]) => {
         const row=node("p",""); row.append(node("strong","",k+": "),document.createTextNode(v || "Неизвестно")); details.append(row);
       });
       card.append(details);
       const footer=node("div","nft-yield-footer");
       footer.append(node("small","", "Проверено: "+date(item.checked_at)));
       const href=safeUrl(item.official_url);
-      if(href){const a=node("a","record-link","Официальные правила ↗");a.href=href;a.target="_blank";a.rel="noopener noreferrer";footer.append(a);}
+      if(href){const a=node("a","record-link","Официальные правила ↗");a.href=href;a.target="_blank";a.rel="noopener noreferrer";footer.append(a);} const extra=safeUrl(item.secondary_url); if(extra){const a=node("a","record-link",item.secondary_source || "Дополнительный источник ↗");a.href=extra;a.target="_blank";a.rel="noopener noreferrer";footer.append(a);} const risk=safeUrl(item.external_risk_url); if(risk){const a=node("a","record-link","Проверка рисков ↗");a.href=risk;a.target="_blank";a.rel="noopener noreferrer";footer.append(a);}
       card.append(footer);
       root.append(card);
     });
