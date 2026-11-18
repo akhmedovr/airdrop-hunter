@@ -9,6 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
 from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
+from strategy_dashboard import build_strategy_dashboard
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -320,6 +321,17 @@ async def mark_notification_read(notification_id:str,authorization: str|None=Hea
 async def opportunities(authorization: str|None=Header(default=None)):
     user=await auth_user(authorization)
     return {"items":await db_get("campaigns",user["id"],"select=*&order=discovered_at.desc&limit=100",authorization.split(" ",1)[1])}
+
+@app.get("/api/strategies")
+async def strategies(authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    token=authorization.split(" ",1)[1]
+    campaigns=await db_get("campaigns",user["id"],"select=*&order=discovered_at.desc&limit=250",token)
+    rewards=await db_get("rewards",user["id"],"select=status,asset_symbol,amount,estimated_usd,realized_usd,fees_usd,evidence,created_at",token)
+    transactions=await db_get("transactions",user["id"],"select=direction,value_usd,fee_usd,status,metadata,occurred_at",token)
+    runs=await db_get("agent_runs",user["id"],"select=job_type,status,started_at,finished_at,items_found,summary,error,metadata&order=started_at.desc&limit=20",token)
+    return build_strategy_dashboard(campaigns,rewards,transactions,runs)
+
 
 @app.get("/api/tasks")
 async def tasks(authorization: str|None=Header(default=None)):

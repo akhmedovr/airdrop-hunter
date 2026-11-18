@@ -53,6 +53,7 @@
 
       <nav class="desktop-nav" aria-label="Основная навигация">
         <button class="nav-item active" data-view="overview">Обзор</button>
+        <button class="nav-item" data-view="strategies">Два направления</button>
         <button class="nav-item" data-view="opportunities">Возможности</button>
         <button class="nav-item" data-view="tasks">Задания</button>
         <button class="nav-item" data-view="wallets">Кошельки</button>
@@ -83,6 +84,37 @@
           </article>
         </div>
         <div class="notice"><span class="notice-icon">!</span><p><strong>Безопасный режим включён.</strong> ИИ может искать, анализировать и планировать. Подпись транзакций, переводы, approve и платные действия остаются под твоим контролем.</p></div>
+      </section>
+
+      <section class="view" id="view-strategies">
+        <div class="section-heading"><div><p class="eyebrow">DUAL TRACK / LIVE DATA</p><h2>Два направления</h2></div><button class="secondary-button" id="strategyRefresh" type="button">Обновить анализ</button></div>
+        <div class="metrics-grid strategy-metrics">
+          <article class="metric-card"><span>Без вложений · кандидаты</span><strong id="strategyNoCapitalCount">—</strong><small>Низкооперационные node / compute</small></article>
+          <article class="metric-card"><span>С капиталом · кандидаты</span><strong id="strategyCapitalCount">—</strong><small>Депозит, стейкинг или торговый риск</small></article>
+          <article class="metric-card"><span>Требуют классификации</span><strong id="strategyUnclassifiedCount">—</strong><small>Не попали автоматически в два трека</small></article>
+          <article class="metric-card"><span>Последний скан</span><strong id="strategyLastScan">—</strong><small id="strategyLastScanNote">Ожидание данных</small></article>
+        </div>
+        <div class="strategy-intro panel">
+          <div><p class="eyebrow">ACCOUNTING / READ ONLY</p><h3>Раздельный финансовый учёт</h3><p>Учитываются только операции, явно помеченные стратегией. Непривязанные транзакции не распределяются между направлениями автоматически.</p></div>
+          <div id="strategyAccounting" class="strategy-accounting"><span>Загрузка учёта…</span></div>
+        </div>
+        <div class="strategy-live-grid">
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">01 / TIME ONLY</p><h3>Без вложений</h3></div><span class="status-chip warning">Проверка условий</span></div>
+            <p class="strategy-section-note">Отсутствие депозита не означает нулевые расходы: отдельно проверяем оборудование, электричество, интернет, комиссии и возможность вывода.</p>
+            <div id="strategyNoCapitalRecords" class="record-list"><div class="empty-state compact">Загрузка кандидатов…</div></div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">02 / CAPITAL</p><h3>С вложениями</h3></div><span class="status-chip neutral">Капитал не задействован</span></div>
+            <p class="strategy-section-note">Здесь показываются только программы с депозитом, стейкингом, ликвидностью или финансовым риском. Ни одна операция не запускается автоматически.</p>
+            <div id="strategyCapitalRecords" class="record-list"><div class="empty-state compact">Загрузка кандидатов…</div></div>
+          </article>
+        </div>
+        <article class="panel strategy-watchlist">
+          <div class="panel-heading"><div><p class="eyebrow">RESEARCH QUEUE</p><h3>Остальные кандидаты</h3></div><span class="muted-pill">Не классифицированы</span></div>
+          <div id="strategyUnclassifiedRecords" class="record-list"><div class="empty-state compact">Загрузка очереди…</div></div>
+        </article>
+        <p class="form-note">Points, XP, TVL, призовые пулы и расчётные доли не являются полученным доходом. Доход фиксируется только после фактического получения и подтверждения ликвидности. Eligibility, KYC и правила всегда проверяются по актуальным официальным источникам.</p>
       </section>
 
       <section class="view" id="view-opportunities">
@@ -129,6 +161,7 @@
 
     <nav class="mobile-nav" aria-label="Нижняя навигация">
       <button class="mobile-nav-item active" data-view="overview"><span>⌂</span>Обзор</button>
+      <button class="mobile-nav-item" data-view="strategies"><span>↗</span>Треки</button>
       <button class="mobile-nav-item" data-view="opportunities"><span>⌕</span>Поиск</button>
       <button class="mobile-nav-item" data-view="tasks"><span>☷</span>Задания</button>
       <button class="mobile-nav-item" data-view="wallets"><span>◇</span>Кошельки</button>
