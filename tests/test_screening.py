@@ -214,6 +214,12 @@ class ScreeningTests(unittest.TestCase):
         self.assertIn("country_eligibility_not_confirmed", assessment["blockers"])
         self.assertIn("kyc_requirement_unknown", assessment["blockers"])
         self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
+        ordinary = normalize_campaign_record({
+            "title": "Ordinary discovery",
+            "url": "https://example.org/",
+            "evidence": [],
+        })
+        self.assertEqual(set(normalized), set(ordinary))
 
     def test_normalizer_attaches_fail_closed_opportunity_assessment(self):
         normalized = normalize_campaign_record({
