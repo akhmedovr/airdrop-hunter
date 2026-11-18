@@ -63,9 +63,9 @@ def test_dashboard_sort_handles_missing_evidence_timestamps():
     result = build_strategy_dashboard([
         {"title": "dated", "evidence": [{"url": "https://example.org/a",
           "checked_at": "2026-11-18T10:00:00+00:00",
-          "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
+          "opportunity_assessment": {"activity_mode": "unattended_node", "required_capital_usd": 0, "evidence_fresh": False}}]},
         {"title": "undated", "evidence": [{"url": "https://example.org/b",
-          "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
+          "opportunity_assessment": {"activity_mode": "unattended_node", "required_capital_usd": 0, "evidence_fresh": False}}]},
     ], [], [], [])
     assert len(result["tracks"]["no_capital"]) == 2
 
@@ -131,3 +131,9 @@ def test_agent_usage_with_zero_fiat_capital_appears_in_no_capital_track():
     result = build_strategy_dashboard([campaign("agent_usage", 0)], [], [], [])
     assert len(result["tracks"]["no_capital"]) == 1
     assert result["tracks"]["no_capital"][0]["estimated_reward_usd"] is None
+
+
+def test_unknown_required_capital_is_not_classified_as_no_capital():
+    result = build_strategy_dashboard([campaign("unattended_node", None)], [], [], [])
+    assert len(result["tracks"]["no_capital"]) == 0
+    assert len(result["tracks"]["unclassified"]) == 1
