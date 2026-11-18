@@ -582,10 +582,12 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
             "compute providers independently of staking. The documented network-wide pool is 856.164 ACU "
             "per epoch (about 1.5 hours), shared across benchmark pools and all competing providers. "
             "This is NOT the reward per phone. The individual share depends on benchmark scores and the "
-            "active provider pool; no verified per-device or monthly amount is published. Processor Lite "
-            "supports iOS 16+ and Android 12+; existing compatible hardware can be used without buying a node. "
-            "The FAQ reports network transaction fees around 0.0013 ACU each. Wallet funding/fee coverage, "
-            "Russian-resident eligibility and KYC are not confirmed. No staking is required for the base pool."
+            "active provider pool. "
+            f"{estimate_text} Processor Lite supports iOS 16+ and Android 12+; existing compatible hardware "
+            "can be used without buying a node. The FAQ reports network transaction fees around 0.0013 ACU each. "
+            f"A 48-heartbeat/day fee scenario would be {heartbeat_fee_scenario} ACU/month, but docs do not confirm "
+            "one transaction per heartbeat. Wallet funding/fee coverage, Russian-resident eligibility and KYC "
+            "are not confirmed. No staking is required for the base pool."
         ),
         "confidence": 0.55,
         "official_rules_url": "https://acurast.com/terms-conditions/",
