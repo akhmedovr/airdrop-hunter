@@ -3,6 +3,8 @@ from unittest.mock import patch
 
 from backend.magiceden_provider import (
     _normalise_listing,
+    MagicEdenProviderError,
+    fetch_collection_listings,
     _CACHE,
     _CACHE_MAX_ENTRIES,
     _store_cache,
@@ -36,6 +38,13 @@ class MagicEdenProviderTests(unittest.TestCase):
     def test_rejects_expired_or_incomplete_listing(self):
         self.assertIsNone(_normalise_listing({"tokenMint": "x", "listingSource": "M2", "expiry": 1}, "demo"))
         self.assertIsNone(_normalise_listing({"tokenMint": "x", "listingSource": "M2", "expiry": -1}, "demo"))
+
+    def test_live_provider_is_disabled_until_terms_and_geography_review(self):
+        import asyncio
+        with patch.dict("os.environ", {"MAGICEDEN_API_ENABLED": ""}):
+            with self.assertRaises(MagicEdenProviderError) as error:
+                asyncio.run(fetch_collection_listings("demo"))
+        self.assertEqual(error.exception.status_code, 503)
 
     def test_cache_is_bounded(self):
         _CACHE.clear()
