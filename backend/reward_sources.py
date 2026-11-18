@@ -532,8 +532,8 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
         return []
     now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     network_text = _visible_text(network_html)
-    active_1_5h_match = re.search(r"1\\.5h Active\\s+([\\d,]+)", network_text, re.IGNORECASE)
-    active_24h_match = re.search(r"24h Active\\s+([\\d,]+)", network_text, re.IGNORECASE)
+    active_1_5h_match = re.search(r"1\.5h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    active_24h_match = re.search(r"24h Active\s+([\d,]+)", network_text, re.IGNORECASE)
     active_1_5h = int(active_1_5h_match.group(1).replace(",", "")) if active_1_5h_match else None
     active_24h = int(active_24h_match.group(1).replace(",", "")) if active_24h_match else None
     network_pool_month = 856.164 * 16 * 30
