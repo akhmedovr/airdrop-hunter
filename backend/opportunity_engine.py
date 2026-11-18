@@ -73,6 +73,9 @@ def assess_opportunity(record: dict, country: str = SUPPORTED_COUNTRY,
     elif allowed or denied:
         eligibility = "ineligible" if allowed and country not in allowed else "unknown"
 
+    reward_kind = str(item.get("reward_kind", "unknown")).lower()
+    if reward_kind not in REWARD_KINDS:
+        reward_kind = "unknown"
     reward_verified = item.get("reward_value_verified") is True
     reward_usd = _number(item.get("reward_usd")) if reward_verified and reward_kind not in {"points", "nft", "discount", "unknown"} else None
     costs_verified = item.get("total_cost_verified") is True
@@ -82,9 +85,6 @@ def assess_opportunity(record: dict, country: str = SUPPORTED_COUNTRY,
 
     capital = _number(item.get("required_capital_usd"))
     lockup_days = _number(item.get("lockup_days"))
-    reward_kind = str(item.get("reward_kind", "unknown")).lower()
-    if reward_kind not in REWARD_KINDS:
-        reward_kind = "unknown"
     mode = str(item.get("activity_mode", "unknown")).lower()
     if mode not in ACTIVITY_MODES:
         mode = "unknown"
