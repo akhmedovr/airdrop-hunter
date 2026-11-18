@@ -74,7 +74,7 @@ def assess_opportunity(record: dict, country: str = SUPPORTED_COUNTRY,
         eligibility = "ineligible" if allowed and country not in allowed else "unknown"
 
     reward_verified = item.get("reward_value_verified") is True
-    reward_usd = _number(item.get("reward_usd")) if reward_verified else None
+    reward_usd = _number(item.get("reward_usd")) if reward_verified and reward_kind not in {"points", "nft", "discount", "unknown"} else None
     costs_verified = item.get("total_cost_verified") is True
     costs_complete = item.get("costs_complete") is True
     cost_usd = _number(item.get("total_cost_usd")) if costs_verified and costs_complete else None
