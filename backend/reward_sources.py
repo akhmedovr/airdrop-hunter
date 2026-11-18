@@ -483,6 +483,14 @@ def parse_flop_testnet_watch(docs_html, testnet_html, checked_at=None,
         "kyc_required": None,
         "estimated_reward_usd": None,
         "cost_estimate_usd": 0,
+        "activity_mode": "agent_usage",
+        "country_eligibility": "unknown",
+        "reward_kind": "unknown",
+        "reward_value_verified": False,
+        "cost_estimate_verified": False,
+        "costs_complete": False,
+        "required_capital_usd": 0,
+        "lockup_days": None,
         "reward_description": (
             "Public Testnet is targeted for 24 Nov 2026, subject to readiness; it is not confirmed live. "
             "The agent path does not require a GPU or rented miner: it uses a DID identity key, testnet faucet "
