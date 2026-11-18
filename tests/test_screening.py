@@ -193,7 +193,7 @@ class ScreeningTests(unittest.TestCase):
                 "checked_at": "2026-11-18T00:00:00+00:00",
             }],
         })
-        assessment = normalized["opportunity_assessment"]
+        assessment = normalized["evidence"][0]["opportunity_assessment"]
         self.assertEqual(assessment["status"], "blocked")
         self.assertIn("official_evidence_missing", assessment["blockers"])
         self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
