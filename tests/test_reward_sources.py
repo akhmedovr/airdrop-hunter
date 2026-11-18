@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from datetime import datetime, timezone
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
-from reward_sources import parse_defillama_rewards_html, parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch
+from reward_sources import parse_defillama_rewards_html, parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
 
 
 class RewardSourceParserTests(unittest.TestCase):
@@ -121,6 +121,31 @@ class RewardSourceParserTests(unittest.TestCase):
         payload = [{"protocol":"Example","reward_types":["Commission"],"publish_status":"Published","lifecycle":"Live"},{"protocol":"Example 2","reward_types":["Points"],"publish_status":"Published","lifecycle":"Season Gap"}]
         self.assertEqual(parse_defillama_rewards_payload(payload, checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc)), [])
 
+
+    def test_acurast_watch_separates_network_pool_from_per_device_reward(self):
+        rewards = """
+        <body>Base Benchmark Rewards. Independent of their participation in Staked Compute.
+        856.164 ACU per epoch. roughly every 1.5 hours.</body>
+        """
+        provider = "<body>Processor Lite. iPhone 8 or newer. iOS 16+.</body>"
+        faq = "<body>Fees are typically minimal, usually around 0.0013 ACU per transaction.</body>"
+        rows = parse_acurast_processor_watch(
+            rewards, provider, faq,
+            checked_at=datetime(2026, 11, 18, tzinfo=timezone.utc),
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["reward_kind"], "direct_token")
+        self.assertEqual(rows[0]["required_capital_usd"], 0)
+        self.assertIsNone(rows[0]["evidence"][0]["per_device_reward"])
+        self.assertIn("NOT the reward per phone", rows[0]["reward_description"])
+        self.assertEqual(rows[0]["country_eligibility"], "unknown")
+        self.assertIsNone(rows[0]["kyc_required"])
+
+    def test_acurast_watch_rejects_missing_no_stake_or_fee_evidence(self):
+        rewards = "<body>Base Benchmark Rewards 856.164 ACU per epoch</body>"
+        provider = "<body>Processor Lite iPhone 8 or newer</body>"
+        faq = "<body>Fees unknown</body>"
+        self.assertEqual(parse_acurast_processor_watch(rewards, provider, faq), [])
 
     def test_aioz_depin_watch_requires_reward_and_resource_signals(self):
         rows = parse_aioz_depin_watch(
