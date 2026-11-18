@@ -183,6 +183,25 @@ class ScreeningTests(unittest.TestCase):
         self.assertEqual(result["mode"], "passive_holding_or_vault")
         self.assertIn("peg", result["reason"])
 
+    def test_normalizer_attaches_fail_closed_opportunity_assessment(self):
+        normalized = normalize_campaign_record({
+            "title": "AIOZ DePIN node rewards",
+            "reward_description": "Run a node and provide storage and bandwidth.",
+            "evidence": [{
+                "source": "AIOZ official watch",
+                "source_url": "https://docs.aioz.network/",
+                "checked_at": "2026-11-18T00:00:00+00:00",
+            }],
+        })
+        assessment = normalized["opportunity_assessment"]
+        self.assertEqual(assessment["status"], "blocked")
+        self.assertIn("official_evidence_missing", assessment["blockers"])
+        self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
+        self.assertEqual(
+            normalized["evidence"][0]["opportunity_assessment"]["status"],
+            "blocked",
+        )
+
     def test_normalizer_attaches_automation_assessment_to_evidence(self):
         normalized = normalize_campaign_record({
             "title": "Validator node",
