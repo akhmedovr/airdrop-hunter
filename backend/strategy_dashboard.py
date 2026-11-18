@@ -50,12 +50,25 @@ def _project(campaign: dict) -> tuple[str, dict]:
     primary = next((row for row in evidence if isinstance(row, dict) and row.get("url")), {})
     source_name = str(primary.get("source") or "").lower()
     campaign_url = str(campaign.get("url") or "").lower()
-    is_manual_quest = source_name.startswith("galxe") or "app.galxe.com/quest/" in campaign_url
+    title_text = str(campaign.get("title") or "").lower()
+    description_text = str(campaign.get("reward_description") or "").lower()
+    is_galxe = source_name.startswith("galxe") or "app.galxe.com/quest/" in campaign_url
+    is_referral_program = "referral program" in title_text or "affiliate program" in title_text
+    explicit_capital_action = any(
+        marker in (title_text + " " + description_text)
+        for marker in ("stake ", "staking", "deposit ", "deposits", "provide liquidity",
+                       "liquidity provision", "trade volume", "trading volume",
+                       "personal volume", "borrow", "leverage", "vault deposit")
+    )
 
-    # Quest-directory records are manual account actions, never unattended node work.
-    # Unknown hardware and operating costs remain visible as blockers.
-    if is_manual_quest:
+    # Referral leads do not prove that the owner must invest; verify referrer
+    # thresholds separately. Generic Galxe "storage" wording is not a node task.
+    if is_referral_program:
         track = "unclassified"
+    elif is_galxe and not explicit_capital_action:
+        track = "unclassified"
+    elif is_galxe and explicit_capital_action:
+        track = "capital"
     elif mode in {"unattended_node", "storage_compute_bandwidth"} and (required_number is None or required_number == 0):
         track = "no_capital"
     elif mode in {"passive_holding", "trading_liquidity"} or (required_number is not None and required_number > 0):
