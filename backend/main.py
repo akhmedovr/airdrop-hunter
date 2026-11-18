@@ -208,8 +208,15 @@ async def fetch_acurast_processor_watch():
     async with httpx.AsyncClient(timeout=25,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
         responses=await asyncio.gather(*(client.get(url) for url in urls))
         for response in responses: response.raise_for_status()
+        dashboard_html=""
+        try:
+            dashboard=await client.get("https://acurast.online/")
+            dashboard.raise_for_status()
+            dashboard_html=dashboard.text
+        except Exception as error:
+            log.warning("Acurast community metrics unavailable: %s",str(error)[:140])
         return parse_acurast_processor_watch(
-            responses[0].text,responses[1].text,responses[2].text
+            responses[0].text,responses[1].text,responses[2].text,dashboard_html
         )
 
 
