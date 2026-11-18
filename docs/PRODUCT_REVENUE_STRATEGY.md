@@ -84,3 +84,11 @@ Acquisition experiments:
 - Supabase NFT migration is additive and remains unapplied until endpoint and RLS tests are complete.
 - No paid subscriptions or ad network are configured.
 - Production remains the existing private dashboard until multi-tenant security review is complete.
+
+
+## Magic Eden Solana data-source gate
+
+- The public Solana collection-listings endpoint documents unauthenticated GET access, 120 requests per minute and 2 requests per second; listing aggregation can include multiple sources through `listingAggMode=true`.
+- The API Terms (last updated March 2025) permit integrating API access into an application, but prohibit using API data for advertising/marketing, prohibit resale/redistribution, and restrict access from embargoed jurisdictions.
+- The adapter is therefore disabled by default behind `MAGICEDEN_API_ENABLED=true`. Do not enable it until operator and end-user geographic eligibility, terms compliance, and attribution have been reviewed. Do not use Magic Eden data to target or serve ads. Keep only short-lived cache data required for the feature.
+- Official docs: https://docs.magiceden.io/reference/get_collections-symbol-listings and https://docs.magiceden.io/reference/solana-api-keys. Terms: https://magiceden.io/legal-policies/api-terms.

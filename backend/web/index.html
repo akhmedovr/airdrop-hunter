@@ -201,12 +201,34 @@
         <div class="metrics-grid nft-market-metrics">
           <article class="metric-card"><span>Листингов получено</span><strong id="nftListingsSeen">—</strong><small>Ответ провайдера</small></article>
           <article class="metric-card"><span>Активных записей</span><strong id="nftListingsActive">—</strong><small>После нормализации</small></article>
-          <article class="metric-card"><span>Последняя проверка</span><strong id="nftListingsChecked">—</strong><small>Время UTC</small></article>
+          <article class="metric-card"><span>Последняя проверка</span><strong id="nftListingsChecked">—</strong><small>Время проверки · локальное время</small></article>
           <article class="metric-card"><span>Провайдер</span><strong id="nftProviderName">OpenSea</strong><small>Один рынок · не арбитраж</small></article>
         </div>
         <div class="notice"><span class="notice-icon">!</span><p><strong>Ограничение:</strong> для live-запросов необходим серверный OPENSEA_API_KEY. Ключ не хранится в браузере. Пока ключ не настроен, сканер честно покажет статус интеграции. Второй маркетплейс, исполнимость продажи и полная стоимость сделки ещё не подключены.</p></div>
         <div id="nftMarketResults" class="record-list">
           <article class="panel empty-page"><span class="empty-icon large">▧</span><h3>Ожидает коллекцию</h3><p>Введи slug коллекции OpenSea, чтобы запросить публичные листинги.</p></article>
+        </div>
+        <article class="panel nft-market-intro solana-market-intro">
+          <div>
+            <p class="eyebrow">SOLANA / AGGREGATED LISTINGS</p>
+            <h3>Solana market monitor</h3>
+            <p>Отдельный источник Magic Eden API: агрегированные листинги Solana с указанием listing source (например, M2 или Tensor). Публичные GET-запросы документированы как бесплатные (до 120 запросов в минуту и 2 в секунду). Интеграция в production выключена до проверки условий API и географической допустимости. Данные не используются для рекламы.</p>
+          </div>
+          <form id="solanaMarketForm" class="nft-market-form">
+            <label for="solanaCollectionSymbol">Magic Eden collection symbol</label>
+            <input id="solanaCollectionSymbol" type="text" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9_-]*" placeholder="например, madlads" autocomplete="off" required>
+            <button class="secondary-button" id="solanaMarketSearch" type="submit">Загрузить Solana-листинги</button>
+            <small>До 100 записей · кеш 60 секунд · без API-ключа</small>
+          </form>
+        </article>
+        <div class="metrics-grid nft-market-metrics">
+          <article class="metric-card"><span>Записей получено</span><strong id="solanaListingsSeen">—</strong><small>Magic Eden API</small></article>
+          <article class="metric-card"><span>Активных записей</span><strong id="solanaListingsActive">—</strong><small>После фильтрации</small></article>
+          <article class="metric-card"><span>Последняя проверка</span><strong id="solanaListingsChecked">—</strong><small>Время проверки</small></article>
+          <article class="metric-card"><span>Сеть</span><strong>Solana</strong><small>Агрегированные источники</small></article>
+        </div>
+        <div id="solanaMarketResults" class="record-list">
+          <article class="panel empty-page"><span class="empty-icon large">◈</span><h3>Ожидает Solana-коллекцию</h3><p>Введи collection symbol Magic Eden для получения агрегированных листингов.</p></article>
         </div>
       </section>
 </main>
