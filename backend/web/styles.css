@@ -333,3 +333,16 @@ button:focus-visible,a:focus-visible{outline:2px solid #a99cff;outline-offset:3p
 .nft-market-metrics{margin:18px 0}
 #nftMarketResults .form-note{margin:10px 4px}
 @media(max-width:760px){.nft-market-intro{grid-template-columns:1fr}.nft-market-form{padding:14px}}
+
+
+/* Acurast Processor Lite */
+.acurast-panel{margin-top:18px}
+.acurast-copy{color:var(--muted);font-size:12px;line-height:1.6;margin:8px 0 16px}
+.acurast-data{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acurast-data>div{min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+.acurast-data small{display:block;color:var(--muted);font-size:10px;margin-bottom:7px}
+.acurast-data code{display:block;overflow-wrap:anywhere;font-size:10px;line-height:1.5;color:var(--text)}
+.acurast-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+.acurast-actions a{font-size:11px;color:var(--accent2);text-decoration:none}
+.acurast-note{margin:13px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+@media(max-width:600px){.acurast-data{grid-template-columns:1fr}.acurast-actions{align-items:flex-start;flex-direction:column}}
