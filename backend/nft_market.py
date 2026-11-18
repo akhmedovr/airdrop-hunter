@@ -1,10 +1,9 @@
 """Read-only NFT market normalization and conservative profitability screening.
 
-This module never signs transactions or places orders. Monetary inputs must be
-expressed in the same quote currency (for example, ETH or WETH) before calling
-the screening function.
+No wallet connection, signing, orders, purchases or deposits are performed.
+All monetary inputs must use the same quote currency and normalized units.
 """
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
@@ -35,15 +34,18 @@ class Listing:
         missing = [key for key in required if payload.get(key) in (None, "")]
         if missing:
             raise ValueError("Missing listing fields: " + ", ".join(missing))
+        values = {key: str(payload[key]).strip() for key in required}
+        if any(not values[key] for key in required):
+            raise ValueError("Listing fields cannot be blank")
         price = decimal_value(payload["price"], "price")
         if price <= 0:
             raise ValueError("price must be greater than zero")
         return cls(
-            marketplace=str(payload["marketplace"]).strip().lower(),
-            chain=str(payload["chain"]).strip().lower(),
-            collection=str(payload["collection"]).strip().lower(),
-            token_id=str(payload["token_id"]).strip(),
-            currency=str(payload["currency"]).strip().upper(),
+            marketplace=values["marketplace"].lower(),
+            chain=values["chain"].lower(),
+            collection=values["collection"].lower(),
+            token_id=values["token_id"],
+            currency=values["currency"].upper(),
             price=price,
             url=str(payload["url"]) if payload.get("url") else None,
         )
@@ -71,6 +73,8 @@ def screen_cross_market_opportunity(
     buy_price: Any,
     sell_price: Any,
     *,
+    buy_currency: Optional[str] = None,
+    sell_currency: Optional[str] = None,
     marketplace_buy_fee_pct: Any = 0,
     marketplace_sell_fee_pct: Any = 0,
     royalty_pct: Any = 0,
@@ -84,7 +88,7 @@ def screen_cross_market_opportunity(
     same_asset_verified: bool = False,
     liquidity_verified: bool = False,
 ) -> ArbitrageScreen:
-    """Estimate net spread; defaults are conservative and evidence-gated."""
+    """Estimate net spread; candidate eligibility requires evidence and currency match."""
     buy = decimal_value(buy_price, "buy_price")
     sell = decimal_value(sell_price, "sell_price")
     if buy <= 0 or sell <= 0:
@@ -112,23 +116,29 @@ def screen_cross_market_opportunity(
     if gas < 0 or bridge < 0:
         raise ValueError("gas_cost and bridge_cost cannot be negative")
 
+    reasons = []
+    if not buy_currency or not sell_currency:
+        reasons.append("Quote currency is missing")
+    elif buy_currency.strip().upper() != sell_currency.strip().upper():
+        reasons.append("Buy and sell quote currencies do not match")
+    if buy_marketplace and sell_marketplace and buy_marketplace.strip().lower() == sell_marketplace.strip().lower():
+        reasons.append("Listings are from the same marketplace")
+    if not buy_marketplace or not sell_marketplace:
+        reasons.append("Marketplace identity is incomplete")
+    if not same_asset_verified:
+        reasons.append("Exact asset identity is not verified")
+    if not liquidity_verified:
+        reasons.append("Executable exit liquidity is not verified")
+
     gross = sell - buy
     buy_cost = buy * buy_fee / Decimal("100")
     sell_cost = sell * (sell_fee + royalty + slippage + buffer) / Decimal("100")
     costs = buy_cost + sell_cost + gas + bridge
     net = gross - costs
-    margin = (net / buy * Decimal("100")) if buy else None
-
-    reasons = []
+    margin = net / buy * Decimal("100")
     if gross <= 0:
         reasons.append("No positive gross spread")
-    if not same_asset_verified:
-        reasons.append("Exact asset identity is not verified")
-    if not liquidity_verified:
-        reasons.append("Executable exit liquidity is not verified")
-    if buy_marketplace and sell_marketplace and buy_marketplace == sell_marketplace:
-        reasons.append("Listings are from the same marketplace")
-    if margin is None or margin < minimum:
+    if margin < minimum:
         reasons.append(f"Net margin is below the {minimum}% review threshold")
-    eligible = not reasons
-    return ArbitrageScreen(eligible, gross, costs, net, margin, tuple(reasons))
+
+    return ArbitrageScreen(not reasons, gross, costs, net, margin, tuple(reasons))
