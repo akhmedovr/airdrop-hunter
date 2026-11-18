@@ -113,26 +113,87 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
 }
 
+let allOpportunities = [];
+let activeOpportunityFilter = "all";
+let opportunitySearchTerm = "";
+
+function opportunityCategory(item) {
+  const text = [item.title,item.project_name,item.reward_description,item.ai_summary,
+    ...(item.evidence || []).map((entry) => entry.source || "")].join(" ").toLowerCase();
+  const nft = /\bnft\b|mint|whitelist|collectible|collection|opensea|blur|magic eden|ordinals|inscription/.test(text);
+  const resale = /marketplace|floor price|floor\b|resale|перепродаж|листинг|order book|bid|offer|торговл.*nft/.test(text);
+  if (nft && resale) return "resale";
+  if (nft) return "nft";
+  if (/staking|stake|deposit|liquidity|\blp\b|collateral|trading volume|торгов.*объ[её]м|стейкинг|депозит|ликвидност/.test(text)) return "capital";
+  if (/airdrop|retrodrop|testnet|points|quest|galxe|faucet|incentiv|drop|тестнет|дроп|поинт|квест/.test(text)) return "airdrop";
+  return "web3";
+}
+
+function renderOpportunities() {
+  const root = document.getElementById("opportunitiesList");
+  if (!root) return;
+  const filtered = allOpportunities.filter((item) => {
+    const category = opportunityCategory(item);
+    const text = [item.title,item.project_name,item.reward_description,item.ai_summary].join(" ").toLowerCase();
+    return (activeOpportunityFilter === "all" || category === activeOpportunityFilter)
+      && (!opportunitySearchTerm || text.includes(opportunitySearchTerm));
+  });
+  const count = document.getElementById("opportunityCount");
+  if (count) count.textContent = "Показано " + filtered.length + " из " + allOpportunities.length + " возможностей";
+  root.replaceChildren();
+  if (!filtered.length) {
+    renderEmpty(root, "⌕", "Ничего не найдено", allOpportunities.length
+      ? "Попробуй другой фильтр или поисковый запрос."
+      : "Запусти сканирование публичных источников. Новые записи появятся здесь.");
+    return;
+  }
+  filtered.forEach((item) => {
+    const category = opportunityCategory(item);
+    const source = item.evidence?.[0]?.source || "Источник не указан";
+    const meta = [source,item.chain || "Сеть не определена","Eligibility: " + (item.eligibility || "unknown"),"Статус: " + (item.status || "discovered")].join(" · ");
+    const card = recordCard(item.title,item.reward_description || item.ai_summary,meta,item.url);
+    card.classList.add("opportunity-card");
+    card.dataset.category = category;
+    const tag = document.createElement("span");
+    tag.className = "category-tag category-" + category;
+    tag.textContent = ({airdrop:"AIRDROP",capital:"CAPITAL",nft:"NFT",resale:"NFT MARKET",web3:"WEB3"})[category];
+    card.prepend(tag);
+    root.append(card);
+  });
+}
+
 async function loadOpportunities() {
   const root = document.getElementById("opportunitiesList");
   if (!root) return;
   try {
     const data = await request("/api/opportunities");
-    const items = data.items || [];
-    if (!items.length) {
-      renderEmpty(root, "⌕", "Пока нет результатов", "Запусти сканирование публичных источников. Найденные записи будут считаться кандидатами, а не подтверждёнными наградами.");
-      return;
-    }
-    root.replaceChildren();
-    items.forEach((item) => {
-      const source = item.evidence?.[0]?.source || "Источник не указан";
-      const meta = [source, item.chain || "Сеть не определена", "Eligibility: " + (item.eligibility || "unknown"), "Статус: " + (item.status || "discovered")].join(" · ");
-      root.append(recordCard(item.title, item.reward_description || item.ai_summary, meta, item.url));
-    });
+    allOpportunities = data.items || [];
+    renderOpportunities();
   } catch (error) {
+    allOpportunities = [];
     renderEmpty(root, "!", "Не удалось загрузить возможности", error.message);
   }
 }
+
+document.querySelectorAll("[data-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeOpportunityFilter = button.dataset.filter;
+    document.querySelectorAll("[data-filter]").forEach((chip) => chip.classList.toggle("active", chip === button));
+    renderOpportunities();
+  });
+});
+document.getElementById("opportunitySearch")?.addEventListener("input", (event) => {
+  opportunitySearchTerm = event.target.value.trim().toLowerCase();
+  renderOpportunities();
+});
+document.querySelectorAll("[data-open-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeOpportunityFilter = button.dataset.openFilter;
+    document.querySelectorAll("[data-filter]").forEach((chip) => chip.classList.toggle("active", chip.dataset.filter === activeOpportunityFilter));
+    activateView("opportunities");
+    renderOpportunities();
+  });
+});
 
 function strategyStatus(item) {
   const blockers = Array.isArray(item.blockers) ? item.blockers : [];
