@@ -141,3 +141,57 @@ h1,h2,h3,p{margin-top:0}h1{font:800 clamp(34px,5vw,56px)/1.06 Manrope,sans-serif
 .strategy-record-detail{font-size:11px!important;line-height:1.65!important;color:#c4d0df!important;padding-top:10px;border-top:1px solid var(--line)}
 .strategy-watchlist{margin-top:16px}
 @media(max-width:850px){.strategy-live-grid{grid-template-columns:1fr}.strategy-accounting{min-width:0}}
+
+
+/* Hunter 3.0 — clickable discovery dashboard */
+.quick-launch{margin:0 0 22px;padding:22px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(24,42,61,.96),rgba(15,26,42,.96))}
+.quick-launch-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.quick-launch-heading h2{font:700 20px Manrope,sans-serif;letter-spacing:-.5px;margin:0}
+.launch-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.launch-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-height:142px;padding:15px;text-align:left;border:1px solid var(--line);border-radius:16px;background:rgba(9,17,29,.55);transition:transform .18s,border-color .18s,background .18s}
+.launch-card:hover,.launch-card:focus-visible{transform:translateY(-3px);border-color:var(--accent);background:rgba(31,52,70,.9);outline:none}
+.launch-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:rgba(124,224,189,.12);color:var(--accent);font-size:19px}
+.launch-card strong{font:700 12px Manrope,sans-serif}
+.launch-card small{font-size:10px;color:var(--muted);line-height:1.45}
+.launch-arrow{position:absolute;right:13px;top:14px;color:#71849d;font-size:14px}
+.launch-capital .launch-icon{background:rgba(163,184,255,.12);color:var(--accent2)}
+.launch-nft .launch-icon{background:rgba(211,167,255,.12);color:#d3a7ff}
+.launch-resale .launch-icon{background:rgba(240,200,121,.12);color:var(--warning)}
+.launch-web3 .launch-icon{background:rgba(125,190,255,.12);color:#7dbeff}
+.opportunity-toolbar{display:grid;gap:12px;margin:0 0 16px}
+.search-field{display:flex;align-items:center;gap:10px;padding:0 14px;border:1px solid var(--line);border-radius:13px;background:rgba(18,29,46,.8);color:var(--muted)}
+.search-field span{font-size:20px}
+.search-field input{width:100%;min-width:0;padding:13px 0;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:12px}
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap}
+.filter-chip{padding:9px 13px;border:1px solid var(--line);border-radius:30px;background:rgba(18,29,46,.7);color:var(--muted);font-size:10px;transition:.15s}
+.filter-chip:hover,.filter-chip.active{border-color:rgba(124,224,189,.45);background:rgba(124,224,189,.12);color:var(--accent)}
+.filter-caption{font-size:10px;color:var(--muted);margin:0}
+.record-list{display:grid;gap:12px}
+.record-card{position:relative;transition:border-color .15s,transform .15s}
+.record-card:hover{border-color:#45617f}
+.record-card h3{margin-bottom:8px}
+.record-card p{font-size:12px;line-height:1.6;color:var(--muted);margin:10px 0}
+.record-meta{display:block;font-size:10px;line-height:1.6;color:#8195ad}
+.record-link{display:inline-flex;margin-top:7px;color:var(--accent);font-size:11px;text-decoration:none}
+.record-link:hover{text-decoration:underline}
+.category-tag{display:inline-flex;margin-bottom:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;font-size:9px;letter-spacing:1px;font-weight:700;color:var(--accent)}
+.category-capital{color:var(--accent2);border-color:rgba(163,184,255,.25)}
+.category-nft{color:#d3a7ff;border-color:rgba(211,167,255,.25)}
+.category-resale{color:var(--warning);border-color:rgba(240,200,121,.25)}
+.category-web3{color:#7dbeff;border-color:rgba(125,190,255,.25)}
+button:disabled{opacity:.55;cursor:wait}
+@media(max-width:1000px){.launch-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){
+ .quick-launch{padding:16px;margin-bottom:16px}
+ .quick-launch-heading{align-items:flex-start;flex-direction:column}
+ .quick-launch-heading h2{font-size:18px}
+ .launch-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .launch-card{min-height:126px;padding:13px}
+ .launch-card strong{font-size:11px}
+ .launch-card small{font-size:9px}
+ .filter-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;scrollbar-width:none}
+ .filter-chips::-webkit-scrollbar{display:none}
+ .filter-chip{white-space:nowrap;flex:none}
+ .record-card{padding:17px}
+}
+@media(prefers-reduced-motion:reduce){.launch-card,.record-card{transition:none}}
