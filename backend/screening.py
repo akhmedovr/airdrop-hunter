@@ -151,16 +151,29 @@ def normalize_campaign_record(record: dict) -> dict:
         "manual_quests": "manual_quests",
         "passive_holding_or_vault": "passive_holding",
     }
+    # Research-only inputs are not campaigns table columns. Remove them from the
+    # PostgREST upsert row, but retain them for the JSON assessment below.
+    opportunity_inputs = {}
+    for field in (
+        "country_eligibility", "reward_kind", "reward_value_verified",
+        "cost_estimate_verified", "costs_complete", "activity_mode",
+        "required_capital_usd", "lockup_days",
+    ):
+        if field in normalized:
+            opportunity_inputs[field] = normalized.pop(field)
     opportunity = assess_opportunity({
         **normalized,
-        "country_eligibility": normalized.get("country_eligibility", normalized.get("eligibility", "unknown")),
+        **opportunity_inputs,
+        "country_eligibility": opportunity_inputs.get(
+            "country_eligibility", normalized.get("eligibility", "unknown")
+        ),
         "reward_usd": normalized.get("estimated_reward_usd"),
-        "reward_kind": normalized.get("reward_kind", "unknown"),
-        "reward_value_verified": normalized.get("reward_value_verified") is True,
+        "reward_kind": opportunity_inputs.get("reward_kind", "unknown"),
+        "reward_value_verified": opportunity_inputs.get("reward_value_verified") is True,
         "total_cost_usd": normalized.get("cost_estimate_usd"),
-        "total_cost_verified": normalized.get("cost_estimate_verified") is True,
-        "costs_complete": normalized.get("costs_complete") is True,
-        "activity_mode": normalized.get("activity_mode") or activity_modes.get(automation["mode"], "unknown"),
+        "total_cost_verified": opportunity_inputs.get("cost_estimate_verified") is True,
+        "costs_complete": opportunity_inputs.get("costs_complete") is True,
+        "activity_mode": opportunity_inputs.get("activity_mode") or activity_modes.get(automation["mode"], "unknown"),
     })
     evidence = normalized.get("evidence")
     if isinstance(evidence, list):
