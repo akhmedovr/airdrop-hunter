@@ -11,6 +11,7 @@ from screening import normalize_campaign_record, preserve_review_state, should_c
 from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
 from strategy_dashboard import build_strategy_dashboard
 from nft_provider import fetch_collection_best_listings, OpenSeaProviderError
+from magiceden_provider import fetch_collection_listings, MagicEdenProviderError
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -717,6 +718,17 @@ async def nft_market_listings(slug: str, authorization: str|None=Header(default=
     except ValueError as error:
         raise HTTPException(400, str(error))
     except OpenSeaProviderError as error:
+        raise HTTPException(error.status_code, str(error))
+
+
+@app.get("/api/nft/solana/{symbol}")
+async def nft_solana_listings(symbol: str, authorization: str|None=Header(default=None)):
+    await auth_user(authorization)
+    try:
+        return await fetch_collection_listings(symbol, limit=100)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except MagicEdenProviderError as error:
         raise HTTPException(error.status_code, str(error))
 
 
