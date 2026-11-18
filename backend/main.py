@@ -11,6 +11,7 @@ from screening import normalize_campaign_record, preserve_review_state, should_c
 from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
 from strategy_dashboard import build_strategy_dashboard
 from nft_provider import fetch_collection_best_listings, OpenSeaProviderError
+from nft_yield import get_nft_yield_opportunities
 from magiceden_provider import fetch_collection_listings, MagicEdenProviderError
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
@@ -731,6 +732,11 @@ async def nft_solana_listings(symbol: str, authorization: str|None=Header(defaul
     except MagicEdenProviderError as error:
         raise HTTPException(error.status_code, str(error))
 
+
+@app.get("/api/nft/yield")
+async def nft_yield_feed():
+    """Public, read-only curated research feed; contains no personal or wallet data."""
+    return get_nft_yield_opportunities(country="RU", budget_rub=5000)
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles

@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="/icon.svg">
   <link rel="stylesheet" href="/styles.css">
   <title>Airdrop Hunter</title>
+  <link rel="stylesheet" href="/nft-yield.css">
 </head>
 <body>
   <div class="app-shell">
@@ -55,7 +56,7 @@
         <button class="nav-item active" data-view="overview">Обзор</button>
         <button class="nav-item" data-view="strategies">Два направления</button>
         <button class="nav-item" data-view="opportunities">Возможности</button>
-        <button class="nav-item" data-view="nft-market">NFT Market</button>
+        <button class="nav-item" data-view="nft-market">NFT Market</button>\n        <button class="nav-item" data-view="nft-yield">NFT & Passive Income</button>
         <button class="nav-item" data-view="tasks">Задания</button>
         <button class="nav-item" data-view="wallets">Кошельки</button>
         <button class="nav-item" data-view="notifications">Уведомления <span class="nav-count" id="unreadCount">0</span></button>
@@ -231,13 +232,32 @@
           <article class="panel empty-page"><span class="empty-icon large">◈</span><h3>Ожидает Solana-коллекцию</h3><p>Введи collection symbol Magic Eden для получения агрегированных листингов.</p></article>
         </div>
       </section>
+
+      <section class="view" id="view-nft-yield">
+        <div class="section-heading"><div><p class="eyebrow">PASSIVE WEB3 INCOME / EVIDENCE FIRST</p><h2>NFT & Passive Income Radar</h2></div><button class="secondary-button" id="nftYieldRefresh" type="button">Обновить проверку</button></div>
+        <article class="panel nft-yield-intro"><p class="eyebrow">ТВОИ ПАРАМЕТРЫ</p><h3>Бюджет до 5 000 ₽ · умеренный риск · приоритет бесплатным вариантам</h3><p class="welcome-text">Список показывает реальные механики и причины, почему актив пока нельзя покупать. Доходность, ликвидность и право участия не считаются подтверждёнными без первичных данных.</p></article>
+        <div class="nft-yield-summary metrics-grid">
+          <article class="metric-card"><span>Кандидатов в базе</span><strong id="nftYieldTotal">—</strong><small>Все категории</small></article>
+          <article class="metric-card"><span>Можно покупать</span><strong id="nftYieldBuy">—</strong><small>Только после проверки</small></article>
+          <article class="metric-card"><span>Без вложений</span><strong id="nftYieldFree">—</strong><small>Не гарантия выплаты</small></article>
+          <article class="metric-card"><span>Последняя проверка</span><strong id="nftYieldChecked">—</strong><small>UTC</small></article>
+        </div>
+        <div class="nft-yield-warning"><strong>Правило безопасности:</strong> ни один NFT не будет рекомендован к покупке только из-за обещанного APY. Нужны подтверждённый reward vault, ликвидный reward token, активный рынок NFT, реальная глубина выхода, все комиссии и подтверждённая доступность для резидента России. Баллы и Devnet-токены не считаются доходом.</div>
+        <div class="nft-yield-toolbar" role="group" aria-label="Фильтр пассивных возможностей">
+          <button class="nft-yield-filter active" data-yield-filter="all" type="button">Все</button>
+          <button class="nft-yield-filter" data-yield-filter="free" type="button">Без вложений</button>
+          <button class="nft-yield-filter" data-yield-filter="nft" type="button">NFT staking</button>
+          <button class="nft-yield-filter" data-yield-filter="depin" type="button">DePIN</button>
+        </div>
+        <div id="nftYieldList" class="nft-yield-list"><p class="nft-yield-empty">Загружаю проверенные источники…</p></div>
+      </section>
 </main>
 
     <nav class="mobile-nav" aria-label="Нижняя навигация">
       <button class="mobile-nav-item active" data-view="overview"><span>⌂</span>Обзор</button>
       <button class="mobile-nav-item" data-view="strategies"><span>↗</span>Треки</button>
       <button class="mobile-nav-item" data-view="opportunities"><span>⌕</span>Поиск</button>
-      <button class="mobile-nav-item" data-view="nft-market"><span>▧</span>NFT</button>
+      <button class="mobile-nav-item" data-view="nft-market"><span>▧</span>NFT</button>\n      <button class="mobile-nav-item" data-view="nft-yield"><span>◈</span>Доход</button>
       <button class="mobile-nav-item" data-view="tasks"><span>☷</span>Задания</button>
       <button class="mobile-nav-item" data-view="wallets"><span>◇</span>Кошельки</button>
       <button class="mobile-nav-item" data-view="notifications"><span>♧</span>Уведомления</button>
@@ -247,5 +267,6 @@
   </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/app.js" defer></script>
+  <script src="/nft-yield.js" defer></script>
 </body>
 </html>
