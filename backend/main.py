@@ -187,11 +187,22 @@ async def fetch_push_season3_watch():
         return parse_push_season3_watch(responses[0].text,responses[1].text)
 
 async def fetch_flop_testnet_watch():
-    urls=("https://docs.flop.network/docs/testnet-and-timeline","https://flop.finance/testnet/")
+    urls=(
+        "https://docs.flop.network/docs/testnet-and-timeline",
+        "https://flop.finance/testnet/",
+        "https://docs.flop.network/docs/agent-onboarding",
+        "https://docs.flop.network/docs/official-links",
+        "https://docs.flop.network/docs/airdrop-and-testnet-conversion",
+    )
     async with httpx.AsyncClient(timeout=25,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
         responses=await asyncio.gather(*(client.get(url) for url in urls))
         for response in responses: response.raise_for_status()
-        return parse_flop_testnet_watch(responses[0].text,responses[1].text)
+        return parse_flop_testnet_watch(
+            responses[0].text,responses[1].text,
+            agent_html=responses[2].text,
+            links_html=responses[3].text,
+            conversion_html=responses[4].text,
+        )
 
 async def fetch_aioz_depin_watch():
     urls=("https://docs.aioz.network/aioz-depin/depin-app/depin-cli","https://docs.aioz.network/aioz-depin/depin-app/gui-cli")

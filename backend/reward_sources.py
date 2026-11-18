@@ -346,37 +346,169 @@ def parse_push_season3_watch(portal_html, blog_html, checked_at=None):
     }]
 
 
-def parse_flop_testnet_watch(docs_html, testnet_html, checked_at=None):
+def parse_flop_testnet_watch(docs_html, testnet_html, checked_at=None,
+                             agent_html="", links_html="", conversion_html=""):
     docs = _visible_text(docs_html).lower()
     testnet = _visible_text(testnet_html).lower()
-    if "testnet" not in docs or "validator" not in docs or "testnet" not in testnet:
+    agent = _visible_text(agent_html).lower()
+    links = _visible_text(links_html).lower()
+    conversion = _visible_text(conversion_html).lower()
+    if "testnet" not in docs or "testnet" not in testnet:
         return []
     if not any(term in docs for term in ("2026-11-24", "november 24, 2026", "24 november 2026")):
         return []
+
     now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    agent_verified = "did key" in agent and "faucet" in agent and "inference" in agent
+    no_token_verified = "no flop token" in links and ("no claim" in links or "no mint" in links)
+    country_review_required = "eligibility" in links and ("own law" in links or "country" in links)
+    unlock_verified = "3 flop" in conversion and "inference" in conversion
+    blockers = [
+        "public_testnet_not_yet_confirmed_live",
+        "country_eligibility_requires_individual_legal_assessment",
+        "kyc_requirement_unknown",
+        "testnet_faucet_limits_not_published",
+        "realizable_reward_value_unknown",
+        "genesis_distribution_and_claim_not_live",
+        "future_unlock_requires_3_to_1_mainnet_inference_spend",
+    ]
+    if not agent_verified:
+        blockers.append("official_agent_path_not_fully_verified")
+    if not no_token_verified:
+        blockers.append("official_token_and_claim_status_not_fully_verified")
+    if not country_review_required:
+        blockers.append("official_country_eligibility_text_not_fully_verified")
+    if not unlock_verified:
+        blockers.append("future_unlock_mechanics_not_fully_verified")
+
+    official_evidence = [
+        {
+            "source": "FLOP official Testnet and agent onboarding documentation",
+            "url": "https://docs.flop.network/docs/testnet-and-timeline",
+            "source_url": "https://docs.flop.network/docs/testnet-and-timeline",
+            "checked_at": now.isoformat(),
+            "official": True,
+            "signals": [
+                "Public Testnet target 24 November 2026, subject to readiness",
+                "Agent path uses DID identity key, faucet credits and inference requests",
+                "Devnet activity has no airdrop credit",
+                "Testnet faucet limits are not yet final",
+            ],
+            "opportunity_assessment": {
+                "status": "blocked",
+                "country": "RU",
+                "country_eligibility": "unknown",
+                "kyc_required": None,
+                "reward_kind": "unknown",
+                "reward_value_verified": False,
+                "reward_usd": None,
+                "cost_basis_verified": False,
+                "total_cost_usd": None,
+                "required_capital_usd": 0,
+                "lockup_days": None,
+                "activity_mode": "agent_usage",
+                "evidence_fresh": True,
+                "official_evidence_count": 4 if agent_verified and no_token_verified and country_review_required and unlock_verified else 1,
+                "official_evidence_latest_checked_at": now.isoformat(),
+                "blockers": blockers,
+                "not_a_return_forecast": True,
+                "execution_policy": "research_only; owner approval required for identity, accounts, spending, signatures, claims and transfers",
+            },
+            "automation_assessment": {
+                "fit": "medium",
+                "mode": "agent_usage",
+                "reason": "The agent path does not require a GPU or rented miner; it requires a DID identity key, faucet availability and actual inference usage.",
+                "user_action": "create_agent_identity_and_start_inference_only_after_public_testnet_launch_and_owner_review",
+                "capital_mode": "no_upfront_fiat_specified",
+            },
+            "economic_assessment": {
+                "gate": "blocked_pending_evidence",
+                "eligibility": "unknown",
+                "estimated_reward_usd": None,
+                "estimated_cost_usd": None,
+                "estimated_net_reward_usd": None,
+                "required_capital_usd": 0,
+                "capital_at_risk": False,
+                "blockers": blockers,
+                "note": "No fiat deposit is specified for the agent testnet path, but no reward amount or cash payout is guaranteed.",
+            },
+        },
+        {
+            "source": "FLOP official links and verification",
+            "url": "https://docs.flop.network/docs/official-links",
+            "source_url": "https://docs.flop.network/docs/official-links",
+            "checked_at": now.isoformat(),
+            "official": True,
+            "signals": [
+                "No FLOP token exists yet",
+                "No live mint, claim, presale or airdrop",
+                "Country eligibility is not certified by FLOP Labs",
+            ],
+        },
+        {
+            "source": "FLOP official agent onboarding FAQ",
+            "url": "https://docs.flop.network/docs/agent-onboarding",
+            "source_url": "https://docs.flop.network/docs/agent-onboarding",
+            "checked_at": now.isoformat(),
+            "official": True,
+            "signals": [
+                "Faucet limits not yet announced",
+                "Faucet receipt alone does not earn airdrop credit",
+                "Eligible settled Testnet inference spend counts",
+                "Devnet grants and spend earn no airdrop credit",
+            ],
+        },
+        {
+            "source": "FLOP official airdrop and testnet conversion",
+            "url": "https://docs.flop.network/docs/airdrop-and-testnet-conversion",
+            "source_url": "https://docs.flop.network/docs/airdrop-and-testnet-conversion",
+            "checked_at": now.isoformat(),
+            "official": True,
+            "signals": [
+                "Agent allocation is based on testnet inference usage",
+                "Mainnet agent allocation is locked",
+                "Three FLOP of mainnet inference spend unlocks one FLOP",
+                "Genesis distribution mechanism is not yet wired",
+            ],
+        },
+    ]
     return [{
-        "title": "FLOP Network — validator testnet watch",
+        "title": "FLOP Network — no-deposit agent testnet watch",
         "project_name": "FLOP Network",
         "url": "https://docs.flop.network/docs/testnet-and-timeline",
+        "official_rules_url": "https://docs.flop.network/docs/airdrop-and-testnet-conversion",
         "chain": "FLOP testnet",
+        "status": "discovered",
+        "eligibility": "unknown",
+        "kyc_required": None,
+        "estimated_reward_usd": None,
+        "cost_estimate_usd": 0,
         "reward_description": (
-            "Official documentation lists a provisional public-testnet target of 24 November 2026. "
-            "Validator requirements are hardware-intensive (provisionally 8+ cores, 64 GB RAM and 2–4 TB NVMe). "
-            "No server rental or paid compute is justified under the current RUB 5,000 budget."
+            "Public Testnet is targeted for 24 Nov 2026, subject to readiness; it is not confirmed live. "
+            "The agent path does not require a GPU or rented miner: it uses a DID identity key, testnet faucet "
+            "credits and actual inference requests. Only eligible settled Testnet inference spend is described "
+            "as a basis for agent airdrop credit; Devnet activity earns none. Testnet credits have no monetary "
+            "value and do not convert to mainnet tokens. No FLOP token, live claim or wired genesis distribution "
+            "exists yet. Any future agent allocation is locked and unlocks 1 FLOP for every 3 FLOP spent on "
+            "mainnet inference. FLOP Labs does not certify country eligibility; each participant must assess "
+            "their own legal position. Faucet limits are unpublished. No fiat deposit is specified, but reward "
+            "value, KYC and final claim mechanics remain unknown."
         ),
-        "confidence": 0.3,
-        "evidence": [{
-            "source": "FLOP Network official watchlist",
-            "source_url": "https://docs.flop.network/docs/testnet-and-timeline",
-            "testnet_url": "https://flop.finance/testnet/",
-            "checked_at": now.isoformat(),
-            "signals": ["provisional 2026-11-24 testnet target", "validator participation"],
-        }],
+        "confidence": 0.45,
+        "evidence": official_evidence,
         "ai_summary": (
-            "Future watch item, not yet actionable. Re-check actual public launch and final validator requirements "
-            "after the target date. No hardware rental or compute purchase."
+            "B — relevant time-only testnet lead, not an approved earning opportunity. Watch the public Testnet "
+            "target on 24 Nov 2026. Agent participation avoids GPU rental and is designed around a DID key, "
+            "faucet credits and inference requests. Devnet earns no airdrop credit. Testnet launch is not confirmed, "
+            "faucet limits are unpublished, the token and claim do not exist yet, and no reward amount is known. "
+            "Future mainnet allocation is locked and requires 3:1 mainnet inference spend to unlock. FLOP Labs "
+            "declines to certify country eligibility; RU legal eligibility remains unresolved. Do not create an "
+            "identity, rent hardware or spend money before launch and a fresh review."
         ),
-        "anti_sybil_notes": "No artificial activity or duplicate identities. Do not purchase compute or rent hardware without approval.",
+        "anti_sybil_notes": (
+            "Use one genuine identity only. No fake identities, faucet abuse, multi-accounting, automated spam or "
+            "activity intended to bypass per-identity limits. Follow the official testnet rules."
+        ),
     }]
 
 

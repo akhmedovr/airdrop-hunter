@@ -87,9 +87,12 @@ class RewardSourceParserTests(unittest.TestCase):
         self.assertIn("not published", rows[0]["reward_description"])
 
     def test_flop_watch_requires_provisional_launch_date(self):
-        rows = parse_flop_testnet_watch("<body>Public testnet target 2026-11-24 validator requirements</body>", "<body>FLOP public testnet</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
+        rows = parse_flop_testnet_watch("<body>Public testnet target 2026-11-24</body>", "<body>FLOP public testnet</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc), agent_html="<body>DID key faucet inference</body>", links_html="<body>No FLOP token yet, no claim, country eligibility under own law</body>", conversion_html="<body>3 FLOP inference</body>")
         self.assertEqual(len(rows), 1)
-        self.assertIn("No server rental", rows[0]["reward_description"])
+        self.assertIn("does not require a GPU", rows[0]["reward_description"])
+        self.assertEqual(rows[0]["evidence"][0]["opportunity_assessment"]["activity_mode"], "agent_usage")
+        self.assertEqual(rows[0]["evidence"][0]["opportunity_assessment"]["required_capital_usd"], 0)
+        self.assertIn("country_eligibility_requires_individual_legal_assessment", rows[0]["evidence"][0]["opportunity_assessment"]["blockers"])
 
     def test_asentum_ecosystem_xp_is_separate_and_not_cash(self):
         rows = parse_asentum_watch("<body>Incentivized Testnet is live</body>", "<body>Phase 3 Incentivized Testnet 60M ASE</body>", "<body>Every partner earns XP 18 XP actions 16 daily quests</body>", checked_at=datetime(2026, 11, 17, tzinfo=timezone.utc))
@@ -222,3 +225,16 @@ class RewardSourceParserTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_flop_watch_stays_blocked_when_official_agent_pages_are_missing(self):
+        rows = parse_flop_testnet_watch(
+            "<body>Public testnet target 2026-11-24</body>",
+            "<body>FLOP public testnet</body>",
+            checked_at=datetime(2026, 11, 18, tzinfo=timezone.utc),
+        )
+        self.assertEqual(len(rows), 1)
+        assessment = rows[0]["evidence"][0]["opportunity_assessment"]
+        self.assertEqual(assessment["status"], "blocked")
+        self.assertIn("official_agent_path_not_fully_verified", assessment["blockers"])
+        self.assertIsNone(assessment["reward_usd"])
