@@ -46,17 +46,22 @@ def _project(campaign: dict) -> tuple[str, dict]:
         required = economics.get("required_capital_usd")
     required_number = None if required is None else _number(required)
 
-    # Only unattended compute/node programs are treated as time-only candidates.
+    evidence = campaign.get("evidence") if isinstance(campaign.get("evidence"), list) else []
+    primary = next((row for row in evidence if isinstance(row, dict) and row.get("url")), {})
+    source_name = str(primary.get("source") or "").lower()
+    campaign_url = str(campaign.get("url") or "").lower()
+    is_manual_quest = source_name.startswith("galxe") or "app.galxe.com/quest/" in campaign_url
+
+    # Quest-directory records are manual account actions, never unattended node work.
     # Unknown hardware and operating costs remain visible as blockers.
-    if mode in {"unattended_node", "storage_compute_bandwidth"} and (required_number is None or required_number == 0):
+    if is_manual_quest:
+        track = "unclassified"
+    elif mode in {"unattended_node", "storage_compute_bandwidth"} and (required_number is None or required_number == 0):
         track = "no_capital"
     elif mode in {"passive_holding", "trading_liquidity"} or (required_number is not None and required_number > 0):
         track = "capital"
     else:
         track = "unclassified"
-
-    evidence = campaign.get("evidence") if isinstance(campaign.get("evidence"), list) else []
-    primary = next((row for row in evidence if isinstance(row, dict) and row.get("url")), {})
     checked_at = opportunity.get("official_evidence_latest_checked_at") or primary.get("checked_at")
     reward_verified = opportunity.get("reward_value_verified") is True or economics.get("reward_value_verified") is True
     reward_value = opportunity.get("reward_usd")
