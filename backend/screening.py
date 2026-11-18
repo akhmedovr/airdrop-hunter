@@ -29,7 +29,14 @@ _AUTOMATION_HOLD_RE = re.compile(r"\b(?:holding|hold|balance|deposit|stake|vault
 def classify_automation_fit(campaign: dict) -> dict:
     """Heuristic triage only; not proof of eligibility, income or safety."""
     item = campaign or {}
-    text = " ".join(str(item.get(key) or "") for key in ("title", "reward_description")).lower()
+    text = " ".join(str(item.get(key) or "") for key in ("title", "project_name", "reward_description")).lower()
+    # FLOP's public testnet agent path is distinct from validator/miner operation.
+    # It uses a DID key, faucet credits and inference requests; do not infer a GPU or deposit.
+    if "flop network" in text and "faucet" in text and "inference" in text:
+        return {"mode": "agent_usage", "fit": "medium",
+                "user_action": "create_agent_identity_then_submit_testnet_inference",
+                "capital_mode": "no_upfront_fiat_specified",
+                "reason": "Agent testnet path uses a DID identity, faucet credits and inference requests; no GPU or rented miner is specified."}
     # Repeated financial activity and recurring manual actions override a node keyword.
     if _AUTOMATION_TRADE_RE.search(text):
         return {"mode": "active_trading_or_liquidity", "fit": "low",
@@ -150,6 +157,7 @@ def normalize_campaign_record(record: dict) -> dict:
         "active_trading_or_liquidity": "trading_liquidity",
         "manual_quests": "manual_quests",
         "passive_holding_or_vault": "passive_holding",
+        "agent_usage": "agent_usage",
     }
     # Research-only inputs are not campaigns table columns. Remove them from the
     # PostgREST upsert row, but retain them for the JSON assessment below.
