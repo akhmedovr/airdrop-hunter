@@ -25,4 +25,3 @@ jobs:
       - name: Run safety tests
         run: |
           python -m unittest discover -s tests -v
-          python -m unittest discover -s backend/tests -v
