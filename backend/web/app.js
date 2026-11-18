@@ -420,7 +420,40 @@ async function loadWallets() {
     items.forEach((item) => {
       const usd=item.balance_usd==null ? "" : " · ≈ "+formatMoney(item.balance_usd);
       const balance=item.balance_status==="ok" ? "Баланс: "+item.native_balance+" "+item.balance_symbol+usd : (item.balance_status==="unsupported" ? "Баланс этой сети пока не поддержан" : "Баланс временно недоступен");
-      root.append(recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение · " + balance, null));
+      const card=recordCard(item.label, shortAddress(item.address), item.chain + " · Только чтение · " + balance, null);
+      const activityButton=document.createElement("button");
+      activityButton.type="button";
+      activityButton.className="secondary-button";
+      activityButton.textContent="История операций";
+      const activityRoot=document.createElement("div");
+      activityRoot.className="wallet-activity";
+      activityButton.addEventListener("click",async()=>{
+        activityButton.disabled=true;
+        activityButton.textContent="Загружаю…";
+        activityRoot.replaceChildren();
+        try {
+          const activity=await request("/api/wallets/"+encodeURIComponent(item.id)+"/activity");
+          const records=[...(activity.items||[]),...(activity.token_transfers||[])];
+          if(!records.length) {
+            renderEmpty(activityRoot,"◇","История пока пустая","В публичном источнике не найдено подтверждённых операций.");
+          } else {
+            records.forEach((tx)=>{
+              const hash=tx.hash||"Операция";
+              const when=tx.timestamp ? new Date(tx.timestamp).toLocaleString() : (tx.slot ? "Slot "+tx.slot : "");
+              const detail=tx.token_symbol ? "Токен: "+tx.token_symbol+" · "+String(tx.amount?.value||tx.amount||"") : (tx.method||tx.status||"Транзакция");
+              activityRoot.append(recordCard(shortAddress(hash),detail,when,tx.explorer_url||null));
+            });
+          }
+          activityButton.textContent="Обновить историю";
+        } catch(error) {
+          renderEmpty(activityRoot,"!","Не удалось загрузить историю",error.message);
+          activityButton.textContent="Повторить";
+        } finally {
+          activityButton.disabled=false;
+        }
+      });
+      card.append(activityButton,activityRoot);
+      root.append(card);
     });
   } catch (error) {
     renderEmpty(root, "!", "Не удалось загрузить кошельки", error.message);
