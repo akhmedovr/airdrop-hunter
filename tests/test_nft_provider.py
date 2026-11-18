@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from backend.nft_provider import _normalise_listing, fetch_collection_best_listings
+from backend.nft_provider import _CACHE_MAX_ENTRIES, _cache, _normalise_listing, _store_cache, fetch_collection_best_listings
 
 
 class NftProviderTests(unittest.TestCase):
@@ -37,6 +37,15 @@ class NftProviderTests(unittest.TestCase):
             unique.setdefault(identity, item)
         self.assertEqual(len(unique), 1)
         self.assertEqual(next(iter(unique.values()))["price"], "1")
+
+    def test_cache_is_bounded(self):
+        _cache.clear()
+        for index in range(_CACHE_MAX_ENTRIES + 5):
+            _store_cache(f"collection-{index}", {"index": index})
+        self.assertEqual(len(_cache), _CACHE_MAX_ENTRIES)
+        self.assertNotIn("collection-0", _cache)
+        self.assertIn("collection-104", _cache)
+        _cache.clear()
 
     def test_private_keys_are_not_part_of_public_result(self):
         row = {
