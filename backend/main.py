@@ -798,6 +798,59 @@ async def add_wallet(payload:WalletInput,authorization: str|None=Header(default=
     rows=await db_insert("wallets",{"owner_id":user["id"],"label":payload.label[:80],"address":address,"chain":payload.chain[:40]},authorization.split(" ",1)[1])
     return {"item":rows[0] if rows else None}
 
+class AcurastProcessorInput(BaseModel):
+    processor_address: str
+    manager_address: str
+    label: str = "iPhone Acurast Lite"
+    attested: bool = True
+    reputation: float | None = None
+    processor_version: str | None = "Lite 1.11.0"
+
+
+def validate_acurast_address(value: str) -> str:
+    address = value.strip()
+    alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    if not 40 <= len(address) <= 60 or any(char not in alphabet for char in address):
+        raise HTTPException(400, "Invalid Acurast public address")
+    return address
+
+
+@app.get("/api/acurast/processors")
+async def list_acurast_processors(authorization: str | None = Header(default=None)):
+    user = await auth_user(authorization)
+    token = authorization.split(" ", 1)[1]
+    rows = await db_get(
+        "acurast_processors", user["id"],
+        "select=id,processor_address,manager_address,label,hub_status,attested,reputation,processor_version,observed_at,created_at&order=created_at.desc",
+        token,
+    )
+    return {"items": rows, "monitoring_mode": "owner_reported_hub_status"}
+
+
+@app.post("/api/acurast/processors")
+async def register_acurast_processor(payload: AcurastProcessorInput, authorization: str | None = Header(default=None)):
+    user = await auth_user(authorization)
+    token = authorization.split(" ", 1)[1]
+    processor = validate_acurast_address(payload.processor_address)
+    manager = validate_acurast_address(payload.manager_address)
+    if payload.reputation is not None and not 0 <= payload.reputation <= 100:
+        raise HTTPException(400, "Invalid reputation value")
+    row = {
+        "owner_id": user["id"],
+        "processor_address": processor,
+        "manager_address": manager,
+        "label": (payload.label or "Acurast Processor")[:80],
+        "hub_status": "reported_active",
+        "attested": payload.attested,
+        "reputation": payload.reputation,
+        "processor_version": (payload.processor_version or "")[:40] or None,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    rows = await db_upsert("acurast_processors", row, "owner_id,processor_address", token)
+    return {"item": rows[0] if rows else row, "monitoring_mode": "owner_reported_hub_status"}
+
+
 @app.get("/api/health/ready")
 async def ready():
     needs=[]

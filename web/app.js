@@ -40,7 +40,7 @@ function formatMoney(value) {
 async function request(path, options = {}) {
   const response = await fetch(API + path, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: { "Content-Type": "application/json", ...(authSession?.access_token ? { Authorization: `Bearer ${authSession.access_token}` } : {}), ...(options.headers || {}) },
   });
   if (!response.ok) throw new Error("HTTP " + response.status);
   return response.json();
@@ -55,6 +55,7 @@ async function loadAppData() {
     connection.innerHTML = "<i></i> Сервер подключён";
     status.textContent = health.status === "ok" ? "Система на связи" : "Сервер отвечает";
     const dashboard = await request("/api/dashboard");
+    await loadAcurastProcessor();
     document.getElementById("metricCampaigns").textContent = dashboard.active_campaigns ?? "—";
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
     document.getElementById("metricClaimable").textContent = formatMoney(dashboard.claimable_rewards_usd);
@@ -68,6 +69,64 @@ async function loadAppData() {
     status.textContent = "Ожидает подключения сервера";
   }
 }
+
+const ACURAST_PROCESSOR_ADDRESS = "5CY4Yme4LjjSAM36Pcb8tqAwAokdGb2SmYfPUr5ukPuXDqNY";
+const ACURAST_MANAGER_ADDRESS = "5CrVT6Yca1njygjKDSRRQ3XiVazKXcGu2XDwoK1BDM3J4FQK";
+
+function renderAcurastProcessor(item) {
+  const status = document.getElementById("acurastStatus");
+  const note = document.getElementById("acurastNote");
+  const button = document.getElementById("connectAcurastButton");
+  if (!status || !note || !button) return;
+  if (!item) {
+    status.textContent = "Не подключён";
+    button.disabled = false;
+    button.textContent = "Подключить к Airdrop Hunter";
+    note.textContent = "Статус Hub пока не синхронизируется автоматически. Сохраняем только публичные идентификаторы и подтверждённые тобой сведения.";
+    return;
+  }
+  status.textContent = item.hub_status === "reported_active" ? "Active · по Hub" : "Сохранён";
+  button.disabled = true;
+  button.textContent = "Устройство подключено";
+  note.textContent = "Сохранено " + new Date(item.observed_at).toLocaleString("ru-RU") + ". Attested: " + (item.attested ? "да" : "не подтверждено") + "; Reputation: " + (item.reputation ?? "—") + "; версия: " + (item.processor_version || "—") + ". Это последнее подтверждённое наблюдение, не live-мониторинг.";
+}
+
+async function loadAcurastProcessor() {
+  if (!authSession?.access_token) return;
+  try {
+    const data = await request("/api/acurast/processors");
+    const item = (data.items || []).find((row) => row.processor_address === ACURAST_PROCESSOR_ADDRESS);
+    renderAcurastProcessor(item);
+  } catch (error) {
+    const note = document.getElementById("acurastNote");
+    if (note) note.textContent = "Не удалось загрузить устройство: " + error.message;
+  }
+}
+
+document.getElementById("connectAcurastButton")?.addEventListener("click", async () => {
+  const button = document.getElementById("connectAcurastButton");
+  button.disabled = true;
+  button.textContent = "Сохраняю…";
+  try {
+    const result = await request("/api/acurast/processors", {
+      method: "POST",
+      body: JSON.stringify({
+        processor_address: ACURAST_PROCESSOR_ADDRESS,
+        manager_address: ACURAST_MANAGER_ADDRESS,
+        label: "iPhone Acurast Lite",
+        attested: true,
+        reputation: 0.5,
+        processor_version: "Lite 1.11.0",
+      }),
+    });
+    renderAcurastProcessor(result.item);
+    showToast("Acurast Processor добавлен в Airdrop Hunter.");
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Повторить подключение";
+    showToast("Не удалось сохранить Acurast: " + error.message);
+  }
+});
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);

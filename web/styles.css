@@ -105,3 +105,14 @@ h1,h2,h3,p{margin-top:0}h1{font:800 clamp(34px,5vw,56px)/1.06 Manrope,sans-serif
 .strategy-rules p{font-size:11px;line-height:1.6;color:var(--muted);margin:7px 0 0}
 @media(max-width:850px){.strategy-intro{align-items:flex-start;flex-direction:column}.strategy-cycle{flex-wrap:wrap}.strategy-grid{grid-template-columns:1fr}.strategy-lead{min-height:0}}
 @media(max-width:600px){.mobile-nav{overflow-x:auto;justify-content:flex-start}.mobile-nav-item{flex:0 0 58px;min-width:58px}.strategy-intro{padding:18px}.strategy-intro h3{font-size:17px}.strategy-card{padding:19px}.strategy-card h3{font-size:23px}.strategy-footer{align-items:flex-start;flex-direction:column}.strategy-rules{grid-template-columns:1fr;gap:16px}.strategy-cycle{gap:5px}.strategy-cycle span{padding:7px 8px}}
+
+.acurast-panel{margin-top:18px}
+.acurast-copy{color:var(--muted);font-size:12px;line-height:1.6;margin:8px 0 16px}
+.acurast-data{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acurast-data>div{min-width:0;padding:12px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02)}
+.acurast-data small{display:block;color:var(--muted);font-size:10px;margin-bottom:7px}
+.acurast-data code{display:block;overflow-wrap:anywhere;font-size:10px;line-height:1.5;color:var(--text)}
+.acurast-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+.acurast-actions a{font-size:11px;color:var(--accent2);text-decoration:none}
+.acurast-note{margin:13px 0 0;color:var(--muted);font-size:10px;line-height:1.6}
+@media(max-width:600px){.acurast-data{grid-template-columns:1fr}.acurast-actions{align-items:flex-start;flex-direction:column}}
