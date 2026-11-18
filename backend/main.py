@@ -215,8 +215,15 @@ async def fetch_acurast_processor_watch():
             dashboard_html=dashboard.text
         except Exception as error:
             log.warning("Acurast community metrics unavailable: %s",str(error)[:140])
+        price_json=""
+        try:
+            price=await client.get("https://api.coingecko.com/api/v3/simple/price",params={"ids":"acurast","vs_currencies":"usd"})
+            price.raise_for_status()
+            price_json=price.text
+        except Exception as error:
+            log.warning("ACU market price unavailable: %s",str(error)[:140])
         return parse_acurast_processor_watch(
-            responses[0].text,responses[1].text,responses[2].text,dashboard_html
+            responses[0].text,responses[1].text,responses[2].text,dashboard_html,price_json
         )
 
 
