@@ -73,6 +73,16 @@
           <article class="metric-card"><span>Реализованный результат</span><strong id="metricPnl">—</strong><small>За вычетом учтённых расходов</small></article>
         </div>
 
+        <section class="quick-launch" aria-label="Быстрый переход">
+          <div class="quick-launch-heading"><div><p class="eyebrow">HUNTER 3.0</p><h2>Что ищем сегодня?</h2></div><span class="muted-pill">Выбери направление</span></div>
+          <div class="launch-grid">
+            <button class="launch-card launch-airdrop" data-open-filter="airdrop" type="button"><span class="launch-icon">✦</span><strong>Airdrop Radar</strong><small>Дропы · тестнеты · points</small><span class="launch-arrow">↗</span></button>
+            <button class="launch-card launch-capital" data-open-filter="capital" type="button"><span class="launch-icon">◈</span><strong>Capital Opportunities</strong><small>Стейкинг · депозиты · LP</small><span class="launch-arrow">↗</span></button>
+            <button class="launch-card launch-nft" data-open-filter="nft" type="button"><span class="launch-icon">▧</span><strong>NFT Hunter</strong><small>Mint · whitelist · награды</small><span class="launch-arrow">↗</span></button>
+            <button class="launch-card launch-resale" data-open-filter="resale" type="button"><span class="launch-icon">⇄</span><strong>NFT Arbitrage</strong><small>Рынок · сделки · перепродажа</small><span class="launch-arrow">↗</span></button>
+            <button class="launch-card launch-web3" data-open-filter="web3" type="button"><span class="launch-icon">⌘</span><strong>Web3 Opportunities</strong><small>Bounties · гранты · задания</small><span class="launch-arrow">↗</span></button>
+          </div>
+        </section>
         <div class="content-grid">
           <article class="panel">
             <div class="panel-heading"><div><p class="eyebrow">ПЛАН</p><h3>На сегодня</h3></div><span class="muted-pill">Автоприоритизация</span></div>
@@ -119,6 +129,18 @@
 
       <section class="view" id="view-opportunities">
         <div class="section-heading"><div><p class="eyebrow">DISCOVERY</p><h2>Возможности</h2></div><button class="secondary-button" id="scanButton" type="button">Запустить сканирование</button></div>
+        <div class="opportunity-toolbar">
+          <label class="search-field"><span>⌕</span><input id="opportunitySearch" type="search" placeholder="Поиск проекта или награды…" autocomplete="off"></label>
+          <div class="filter-chips" role="group" aria-label="Фильтр возможностей">
+            <button class="filter-chip active" data-filter="all" type="button">Все</button>
+            <button class="filter-chip" data-filter="airdrop" type="button">Airdrops</button>
+            <button class="filter-chip" data-filter="capital" type="button">С вложениями</button>
+            <button class="filter-chip" data-filter="nft" type="button">NFT</button>
+            <button class="filter-chip" data-filter="resale" type="button">Перепродажа</button>
+            <button class="filter-chip" data-filter="web3" type="button">Другое Web3</button>
+          </div>
+          <p class="filter-caption" id="opportunityCount">Загружаю возможности…</p>
+        </div>
         <div id="opportunitiesList" class="record-list"><article class="panel empty-page"><span class="empty-icon large">⌕</span><h3>Пока нет результатов</h3><p>Запусти проверку публичных источников. Все найденные кампании будут помечены как непроверенные, пока не подтверждены условия и eligibility.</p></article></div>
       </section>
 
