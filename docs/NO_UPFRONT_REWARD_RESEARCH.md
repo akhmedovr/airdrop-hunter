@@ -26,7 +26,7 @@ Verified facts:
 - Acurast's official site linked the community-built Acurast Analytics dashboard. At the 2026-11-18 check, that dashboard showed 35,704 processors active over 1.5 hours and 40,292 over 24 hours (172,568 registered).
 - Equal-share arithmetic using the documented 856.164 ACU/epoch pool, 16 epochs/day and those active-count denominators gives about **10.20–11.51 ACU per device per 30-day month**. This is only a network-average baseline assuming equal benchmark scores; it is not a forecast or a promise for any specific phone. Actual allocations are score-weighted across benchmark pools.
 - On 2026-11-18, CoinMarketCap showed about $0.099922/ACU while CoinGecko showed about $0.1211/ACU. Using that roughly $0.10–$0.12 quote range, the equal-share baseline is about **$1.02–$1.39 gross per month** before fees, battery wear, electricity and any other costs. Aggregator quotes differ; token prices can change.
-- The FAQ says processors heartbeat every 30 minutes and that heartbeats/other chain reports incur around 0.0013 ACU per transaction, but does not explicitly state that every heartbeat is a separate transaction. A conservative scenario of 48 transactions/day would cost about **1.872 ACU/month**, or roughly $0.19 at the same price snapshot. Under that assumption, the equal-share remainder is roughly **$0.83–$0.96/month** before other costs. This fee scenario is not a confirmed charge schedule.
+- The FAQ says processors heartbeat every 30 minutes and that heartbeats/other chain reports incur around 0.0013 ACU per transaction, but does not explicitly state that every heartbeat is a separate transaction. A conservative scenario of 48 transactions/day would cost about **1.872 ACU/month**, or roughly $0.19–$0.23 at the quoted price range. Under that assumption, the equal-share remainder is roughly **$0.83–$1.16/month** before other costs. This fee scenario is not a confirmed charge schedule.
 - Processor Lite is designed for everyday phones. Official docs list iOS 16+ and Android 12+ compatibility; it does not require factory-resetting the everyday phone.
 - Staking adds a separate reward pool but is not required for the Base Benchmark pool.
 - The FAQ reports network transaction fees typically around 0.0013 ACU per transaction.
@@ -65,6 +65,25 @@ Official docs:
 - https://docs.aioz.network/aioz-depin/depin-app/gui-cli
 
 The GUI baseline includes at least 50 GB free storage and a stable 20 Mbps connection. Rewards are for verified resource work; the CLI reports task-specific earnings and the minimum withdrawal is 1 AIOZ. No fixed reward rate or expected monthly amount is published. Russian-resident eligibility remains unverified. Do not rent a VPS or buy hardware; only reconsider if already-owned spare infrastructure qualifies and a zero-cost pilot is possible.
+
+### Nado — excluded for Russian residents and capital risk
+
+Official rewards page: https://app.nado.xyz/rewards
+Terms: https://www.nado.xyz/legal-docs/terms-of-use
+
+The live rewards page explicitly lists Russia as a Restricted Territory and says users from restricted territories are not supported. The advertised $100,000 cash pool is split across ROI and volume leaderboards, with top-10 payouts. This requires active trading and exposes capital to market risk; the page also displays a $1,000 minimum size. Excluded regardless of the prize pool headline.
+
+### Beep AI Trader Showdown — not a zero-investment reward
+
+Galxe campaign: https://app.galxe.com/quest/BeepAI_labs/GCmiStZPvP
+
+The $20,000 headline is a Beep-token reward pool, not guaranteed cash. The campaign instructions require connecting Telegram, launching the trading agent, executing a first trade, and boosting volume/performance. A related entry quest requires a trade above $10 and a referral. Exclude from the no-investment queue.
+
+### Endorphina — expired raffle
+
+Galxe campaign: https://app.galxe.com/quest/Endorphina/GCvcrtZkT3
+
+The campaign page shows an end date of 30 October 2026 and a 5 USDC raffle entry reward. It is closed as of this review and was a raffle, not a guaranteed payment.
 
 ## What the engine must report
 
