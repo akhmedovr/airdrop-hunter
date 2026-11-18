@@ -120,7 +120,7 @@ def screen_cross_market_opportunity(
     if not buy_currency or not sell_currency:
         reasons.append("Quote currency is missing")
     elif buy_currency.strip().upper() != sell_currency.strip().upper():
-        reasons.append("Buy and sell quote currencies do not match")
+        reasons.append("Currency mismatch: buy and sell quote currencies differ")
     if buy_marketplace and sell_marketplace and buy_marketplace.strip().lower() == sell_marketplace.strip().lower():
         reasons.append("Listings are from the same marketplace")
     if not buy_marketplace or not sell_marketplace:
