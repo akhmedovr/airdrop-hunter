@@ -186,6 +186,8 @@ class ScreeningTests(unittest.TestCase):
     def test_acurast_no_stake_candidate_is_low_touch_but_not_income_verified(self):
         normalized = normalize_campaign_record({
             "title": "Acurast — no-stake smartphone compute rewards",
+            "url": "https://docs.acurast.com/processors/rewards/",
+            "eligibility": "unknown",
             "reward_description": (
                 "Base Benchmark Rewards are independent of staking. "
                 "Processor Lite supports iOS 16+. Network transaction fees apply."
@@ -217,6 +219,7 @@ class ScreeningTests(unittest.TestCase):
         ordinary = normalize_campaign_record({
             "title": "Ordinary discovery",
             "url": "https://example.org/",
+            "eligibility": "unknown",
             "evidence": [],
         })
         self.assertEqual(set(normalized), set(ordinary))
