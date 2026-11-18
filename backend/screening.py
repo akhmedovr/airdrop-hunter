@@ -161,7 +161,6 @@ def normalize_campaign_record(record: dict) -> dict:
         "costs_complete": normalized.get("costs_complete") is True,
         "activity_mode": normalized.get("activity_mode") or activity_modes.get(automation["mode"], "unknown"),
     })
-    normalized["opportunity_assessment"] = opportunity
     evidence = normalized.get("evidence")
     if isinstance(evidence, list):
         normalized["evidence"] = [
