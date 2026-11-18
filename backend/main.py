@@ -210,7 +210,7 @@ async def fetch_acurast_processor_watch():
         for response in responses: response.raise_for_status()
         dashboard_html=""
         try:
-            dashboard=await client.get("https://acurast.online/")
+            dashboard=await client.get("https://acurast.online/api/data")
             dashboard.raise_for_status()
             dashboard_html=dashboard.text
         except Exception as error:
