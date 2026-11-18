@@ -206,6 +206,9 @@ class ScreeningTests(unittest.TestCase):
             }],
         })
         assessment = normalized["evidence"][0]["opportunity_assessment"]
+        for field in ("reward_kind", "activity_mode", "country_eligibility",
+                      "required_capital_usd", "lockup_days", "reward_value_verified"):
+            self.assertNotIn(field, normalized)
         self.assertEqual(assessment["activity_mode"], "unattended_node")
         self.assertEqual(assessment["status"], "blocked")
         self.assertIn("country_eligibility_not_confirmed", assessment["blockers"])
