@@ -14,9 +14,21 @@ import httpx
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,99}$")
 _CACHE_TTL_SECONDS = 60
+_CACHE_MAX_ENTRIES = 100
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
-_lock = asyncio.Lock()
 _semaphore = asyncio.Semaphore(3)
+
+
+def _store_cache(slug: str, result: dict[str, Any]) -> None:
+    """Keep the process-local cache bounded even if callers try many slugs."""
+    now = time.monotonic()
+    expired = [key for key, (created_at, _) in _cache.items() if now - created_at >= _CACHE_TTL_SECONDS]
+    for key in expired:
+        _cache.pop(key, None)
+    if slug not in _cache and len(_cache) >= _CACHE_MAX_ENTRIES:
+        oldest_key = min(_cache, key=lambda key: _cache[key][0])
+        _cache.pop(oldest_key, None)
+    _cache[slug] = (now, result)
 
 
 class OpenSeaProviderError(RuntimeError):
@@ -134,5 +146,5 @@ async def fetch_collection_best_listings(slug: str, limit: int = 50) -> dict[str
         "read_only": True,
         "notice": "OpenSea listings are indicative observations, not guaranteed executable liquidity or an arbitrage signal.",
     }
-    _cache[slug] = (time.monotonic(), result)
+    _store_cache(slug, result)
     return result
