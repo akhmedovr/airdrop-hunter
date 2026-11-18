@@ -8,7 +8,7 @@ from pydantic import BaseModel, HttpUrl
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
-from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch
+from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -198,6 +198,27 @@ async def fetch_aioz_depin_watch():
         responses=await asyncio.gather(*(client.get(url) for url in urls))
         for response in responses: response.raise_for_status()
         return parse_aioz_depin_watch(responses[0].text,responses[1].text)
+
+async def fetch_acurast_processor_watch():
+    urls=(
+        "https://docs.acurast.com/processors/rewards/",
+        "https://docs.acurast.com/processors/become-compute-provider/",
+        "https://docs.acurast.com/faq/",
+    )
+    async with httpx.AsyncClient(timeout=25,follow_redirects=True,headers={"User-Agent":"AirdropHunter/2.0"}) as client:
+        responses=await asyncio.gather(*(client.get(url) for url in urls))
+        for response in responses: response.raise_for_status()
+        dashboard_html=""
+        try:
+            dashboard=await client.get("https://acurast.online/")
+            dashboard.raise_for_status()
+            dashboard_html=dashboard.text
+        except Exception as error:
+            log.warning("Acurast community metrics unavailable: %s",str(error)[:140])
+        return parse_acurast_processor_watch(
+            responses[0].text,responses[1].text,responses[2].text,dashboard_html
+        )
+
 
 async def fetch_galxe_campaigns():
     endpoint="https://graphigo.prd.galaxy.eco/query"
@@ -480,9 +501,10 @@ async def perform_scan(owner_id, token):
             {"owner_id":owner_id,"name":"Push Chain Season 3 Watch","source_type":"platform","base_url":"https://portal.push.org/rewards","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
             {"owner_id":owner_id,"name":"FLOP Testnet Watch","source_type":"platform","base_url":"https://docs.flop.network/docs/testnet-and-timeline","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
             {"owner_id":owner_id,"name":"AIOZ DePIN Watch","source_type":"platform","base_url":"https://docs.aioz.network/aioz-depin/depin-app/depin-cli","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
+            {"owner_id":owner_id,"name":"Acurast Processor Watch","source_type":"official","base_url":"https://docs.acurast.com/processors/rewards/","enabled":True,"last_checked_at":datetime.now(timezone.utc).isoformat()},
         ],"owner_id,name",token)
         source_ids={row["name"]:row["id"] for row in source_rows}
-        source_names=("DeFiLlama","Galxe","DeFiLlama Rewards","PerpDEX Points Index","Asentum Validator Watch","Push Chain Season 3 Watch","FLOP Testnet Watch","AIOZ DePIN Watch")
+        source_names=("DeFiLlama","Galxe","DeFiLlama Rewards","PerpDEX Points Index","Asentum Validator Watch","Push Chain Season 3 Watch","FLOP Testnet Watch","AIOZ DePIN Watch","Acurast Processor Watch")
         results=await asyncio.gather(
             fetch_defillama_candidates(),
             fetch_galxe_campaigns(),
@@ -492,6 +514,7 @@ async def perform_scan(owner_id, token):
             fetch_push_season3_watch(),
             fetch_flop_testnet_watch(),
             fetch_aioz_depin_watch(),
+            fetch_acurast_processor_watch(),
             return_exceptions=True,
         )
         errors=[]
@@ -510,7 +533,7 @@ async def perform_scan(owner_id, token):
                     "eligibility":"unknown",
                     "region_restrictions":[],
                     "cost_estimate_usd":0,
-                    "official_rules_url":item["url"] if source_name=="Galxe" else None,
+                    "official_rules_url":item.get("official_rules_url") or (item["url"] if source_name=="Galxe" else None),
                     "discovered_at":datetime.now(timezone.utc).isoformat(),
                     "checked_at":datetime.now(timezone.utc).isoformat(),
                 })
@@ -573,6 +596,7 @@ async def perform_scan(owner_id, token):
                  f"Push S3 watch: {counts['Push Chain Season 3 Watch']}; "
                  f"FLOP watch: {counts['FLOP Testnet Watch']}; "
                  f"AIOZ DePIN: {counts['AIOZ DePIN Watch']}; "
+                 f"Acurast Processor: {counts['Acurast Processor Watch']}; "
                  f"source errors: {len(errors)}.")
         await db_patch("agent_runs",{"id":run_id,"owner_id":owner_id},{
             "status":final_status,

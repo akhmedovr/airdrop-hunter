@@ -155,6 +155,7 @@ def normalize_campaign_record(record: dict) -> dict:
         **normalized,
         "country_eligibility": normalized.get("country_eligibility", normalized.get("eligibility", "unknown")),
         "reward_usd": normalized.get("estimated_reward_usd"),
+        "reward_kind": normalized.get("reward_kind", "unknown"),
         "reward_value_verified": normalized.get("reward_value_verified") is True,
         "total_cost_usd": normalized.get("cost_estimate_usd"),
         "total_cost_verified": normalized.get("cost_estimate_verified") is True,

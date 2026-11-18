@@ -183,6 +183,35 @@ class ScreeningTests(unittest.TestCase):
         self.assertEqual(result["mode"], "passive_holding_or_vault")
         self.assertIn("peg", result["reason"])
 
+    def test_acurast_no_stake_candidate_is_low_touch_but_not_income_verified(self):
+        normalized = normalize_campaign_record({
+            "title": "Acurast — no-stake smartphone compute rewards",
+            "reward_description": (
+                "Base Benchmark Rewards are independent of staking. "
+                "Processor Lite supports iOS 16+. Network transaction fees apply."
+            ),
+            "reward_kind": "direct_token",
+            "activity_mode": "unattended_node",
+            "country_eligibility": "unknown",
+            "eligibility": "unknown",
+            "official_rules_url": "https://acurast.com/terms-conditions/",
+            "kyc_required": None,
+            "required_capital_usd": 0,
+            "lockup_days": 0,
+            "evidence": [{
+                "source": "Acurast official docs",
+                "official": True,
+                "url": "https://docs.acurast.com/processors/rewards/",
+                "checked_at": "2026-11-18T00:00:00+00:00",
+            }],
+        })
+        assessment = normalized["evidence"][0]["opportunity_assessment"]
+        self.assertEqual(assessment["activity_mode"], "unattended_node")
+        self.assertEqual(assessment["status"], "blocked")
+        self.assertIn("country_eligibility_not_confirmed", assessment["blockers"])
+        self.assertIn("kyc_requirement_unknown", assessment["blockers"])
+        self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
+
     def test_normalizer_attaches_fail_closed_opportunity_assessment(self):
         normalized = normalize_campaign_record({
             "title": "AIOZ DePIN node rewards",

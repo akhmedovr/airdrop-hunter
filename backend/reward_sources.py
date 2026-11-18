@@ -5,6 +5,7 @@ a token allocation, or monetary value.
 """
 from datetime import datetime, timezone
 from html.parser import HTMLParser
+import re
 from urllib.parse import urlparse
 
 
@@ -509,5 +510,117 @@ def parse_aioz_depin_watch(cli_html, gui_html, checked_at=None):
             "Use one dedicated key per CLI instance and keep the mnemonic/private key offline encrypted. "
             "Never paste keys into chat. Do not use experimental auto-update in production without a controlled update process. "
             "Multiple instances behind one public IP share task assignments and can reduce rewards."
+        ),
+    }]
+
+
+def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network_html='', checked_at=None):
+    """Track Acurast's no-stake base compute pool without inventing per-device earnings."""
+    rewards = _visible_text(rewards_html).lower()
+    provider = _visible_text(provider_html).lower()
+    faq = _visible_text(faq_html).lower()
+    required_signals = (
+        "base benchmark rewards",
+        "independent of their participation in staked compute",
+        "856.164 acu per epoch",
+    )
+    if not all(signal in rewards for signal in required_signals):
+        return []
+    if "processor lite" not in provider or "iphone 8 or newer" not in provider:
+        return []
+    if "0.0013 acu per transaction" not in faq:
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    network_text = _visible_text(network_html)
+    active_1_5h_match = re.search(r"1\.5h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    active_24h_match = re.search(r"24h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    active_1_5h = int(active_1_5h_match.group(1).replace(",", "")) if active_1_5h_match else None
+    active_24h = int(active_24h_match.group(1).replace(",", "")) if active_24h_match else None
+    network_pool_month = 856.164 * 16 * 30
+    equal_share_1_5h = round(network_pool_month / active_1_5h, 4) if active_1_5h else None
+    equal_share_24h = round(network_pool_month / active_24h, 4) if active_24h else None
+    heartbeat_fee_scenario = round(0.0013 * 48 * 30, 4)
+    estimate_text = (
+        f"Community dashboard equal-share baseline: {equal_share_24h}–{equal_share_1_5h} ACU/month "
+        f"using 24h/1.5h active counts {active_24h}/{active_1_5h}. This is an arithmetic benchmark, "
+        "not a personal payout forecast; actual allocation depends on benchmark scores and pool weights."
+        if equal_share_1_5h and equal_share_24h else
+        "No current active-device count was available, so per-device earnings cannot be estimated."
+    )
+    dashboard_evidence = []
+    if active_1_5h or active_24h:
+        dashboard_evidence.append({
+            "source": "Acurast Analytics community dashboard (linked by Acurast)",
+            "official": False,
+            "url": "https://acurast.online/",
+            "checked_at": now.isoformat(),
+            "active_processors_1_5h": active_1_5h,
+            "active_processors_24h": active_24h,
+            "network_base_pool_acu_per_epoch": 856.164,
+            "epochs_per_day_assumption": 16,
+            "equal_share_acu_month_1_5h": equal_share_1_5h,
+            "equal_share_acu_month_24h": equal_share_24h,
+            "heartbeat_fee_scenario_acu_month": heartbeat_fee_scenario,
+            "fee_scenario_assumption": "48 transactions/day at 0.0013 ACU each; docs do not state that every heartbeat is a separate transaction",
+        })
+    return [{
+        "title": "Acurast — no-stake smartphone compute rewards",
+        "project_name": "Acurast",
+        "url": "https://docs.acurast.com/processors/rewards/",
+        "chain": "Acurast Mainnet",
+        "reward_kind": "direct_token",
+        "activity_mode": "unattended_node",
+        "country_eligibility": "unknown",
+        "kyc_required": None,
+        "required_capital_usd": 0,
+        "lockup_days": 0,
+        "reward_value_verified": False,
+        "cost_estimate_verified": False,
+        "costs_complete": False,
+        "reward_description": (
+            "Official Acurast documentation confirms a Base Benchmark Rewards pool distributed to phone "
+            "compute providers independently of staking. The documented network-wide pool is 856.164 ACU "
+            "per epoch (about 1.5 hours), shared across benchmark pools and all competing providers. "
+            "This is NOT the reward per phone. The individual share depends on benchmark scores and the "
+            "active provider pool. "
+            f"{estimate_text} Processor Lite supports iOS 16+ and Android 12+; existing compatible hardware "
+            "can be used without buying a node. The FAQ reports network transaction fees around 0.0013 ACU each. "
+            f"A 48-heartbeat/day fee scenario would be {heartbeat_fee_scenario} ACU/month, but docs do not confirm "
+            "one transaction per heartbeat. Wallet funding/fee coverage, Russian-resident eligibility and KYC "
+            "are not confirmed. No staking is required for the base pool."
+        ),
+        "confidence": 0.55,
+        "official_rules_url": "https://acurast.com/terms-conditions/",
+        "evidence": [{
+            "source": "Acurast official processor rewards and onboarding documentation",
+            "official": True,
+            "url": "https://docs.acurast.com/processors/rewards/",
+            "source_url": "https://docs.acurast.com/processors/rewards/",
+            "provider_url": "https://docs.acurast.com/processors/become-compute-provider/",
+            "faq_url": "https://docs.acurast.com/faq/",
+            "terms_url": "https://acurast.com/terms-conditions/",
+            "checked_at": now.isoformat(),
+            "signals": [
+                "856.164 ACU network-wide base pool per epoch",
+                "base pool independent of staking",
+                "Processor Lite supports iOS 16+ and Android 12+",
+                "approximately 0.0013 ACU per network transaction",
+            ],
+            "per_device_reward": None,
+            "monthly_reward_estimate": None,
+            "country_eligibility": "unknown",
+            "kyc_required": None,
+        }] + dashboard_evidence,
+        "ai_summary": (
+            "Best current no-stake hardware-fit lead, not approved for participation yet. "
+            f"{estimate_text} A fee scenario of 48 transactions/day at 0.0013 ACU each is "
+            f"{heartbeat_fee_scenario} ACU/month, but the docs do not explicitly equate every heartbeat to one transaction. "
+            "A compatible existing phone may contribute compute without buying hardware or staking. Verify "
+            "Russian-resident eligibility and initial fee coverage before onboarding. Do not use VPN or false "
+            "residency details. Do not buy ACU to start."
+        ),
+        "anti_sybil_notes": (
+            "One genuine processor identity per actual device. Do not clone identities, use device farms, "
+            "spoof location or bypass KYC/geo-controls. Never share recovery phrases or private keys."
         ),
     }]
