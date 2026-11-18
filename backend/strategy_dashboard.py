@@ -141,7 +141,7 @@ def build_strategy_dashboard(campaigns: list[dict], rewards: list[dict],
         items.sort(key=lambda item: (
             bool(item.get("evidence_fresh")),
             item.get("assessment_status") == "ready_for_owner_review",
-            item.get("checked_at") or "",
+            str(item.get("checked_at") or ""),
         ), reverse=True)
 
     no_capital = _track_accounting("no_capital", rewards, transactions)
