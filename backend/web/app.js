@@ -134,6 +134,124 @@ async function loadOpportunities() {
   }
 }
 
+function strategyStatus(item) {
+  const blockers = Array.isArray(item.blockers) ? item.blockers : [];
+  const eligibility = item.country_eligibility || "unknown";
+  const reward = item.reward_value_verified && item.estimated_reward_usd != null
+    ? formatMoney(item.estimated_reward_usd) : "не подтверждена";
+  const cost = item.cost_verified && item.cost_estimate_usd != null
+    ? formatMoney(item.cost_estimate_usd) : "не подтверждены";
+  const capital = item.required_capital_usd == null
+    ? "не определён" : formatMoney(item.required_capital_usd);
+  const checked = item.checked_at ? formatDate(item.checked_at) : "дата проверки неизвестна";
+  const mode = item.activity_mode || "не определён";
+  const details = [
+    "Eligibility: " + eligibility,
+    "KYC: " + (item.kyc_required == null ? "неизвестно" : item.kyc_required ? "требуется" : "не требуется"),
+    "Награда: " + reward,
+    "Расходы: " + cost,
+    "Капитал: " + capital,
+    "Механика: " + mode,
+    "Проверено: " + checked
+  ];
+  if (item.lockup_days != null) details.push("Lock-up: " + item.lockup_days + " дн.");
+  if (blockers.length) details.push("Блокеры: " + blockers.join(", "));
+  else details.push("Блокеры: не выявлены; это всё ещё не разрешение на участие");
+  return details.join(" · ");
+}
+
+function renderStrategyRecords(rootId, items, emptyTitle, emptyText) {
+  const root = document.getElementById(rootId);
+  if (!root) return;
+  root.replaceChildren();
+  if (!items || !items.length) {
+    root.className = "empty-state compact";
+    const strong = document.createElement("strong");
+    strong.textContent = emptyTitle;
+    const p = document.createElement("p");
+    p.textContent = emptyText;
+    root.append(strong, p);
+    return;
+  }
+  root.className = "record-list";
+  items.forEach((item) => {
+    const source = item.source || "Источник не указан";
+    const meta = [source, item.chain || "Сеть не определена", "Статус: " + (item.assessment_status || "не проверен")].join(" · ");
+    const card = recordCard(item.title, item.reward_description || item.ai_summary, meta, item.official_url || item.url);
+    const detail = document.createElement("p");
+    detail.className = "strategy-record-detail";
+    detail.textContent = strategyStatus(item);
+    card.append(detail);
+    root.append(card);
+  });
+}
+
+async function loadStrategies() {
+  try {
+    const data = await request("/api/strategies");
+    const tracks = data.tracks || {};
+    const noCapital = tracks.no_capital || [];
+    const capital = tracks.capital || [];
+    const unclassified = tracks.unclassified || [];
+    document.getElementById("strategyNoCapitalCount").textContent = String(noCapital.length);
+    document.getElementById("strategyCapitalCount").textContent = String(capital.length);
+    document.getElementById("strategyUnclassifiedCount").textContent = String(unclassified.length);
+    const scan = data.last_scan || {};
+    document.getElementById("strategyLastScan").textContent = scan.started_at ? formatDate(scan.started_at) : "—";
+    document.getElementById("strategyLastScanNote").textContent = scan.status
+      ? scan.status + " · " + (scan.items_found ?? 0) + " записей"
+      : "Сканирование ещё не зарегистрировано";
+    renderStrategyRecords("strategyNoCapitalRecords", noCapital,
+      "Нет подтверждённых low-touch кандидатов",
+      "Система продолжает искать программы с понятной моделью выплат и минимальными расходами. Кандидаты с неизвестной экономикой остаются заблокированными.");
+    renderStrategyRecords("strategyCapitalRecords", capital,
+      "Капиталоёмкие кандидаты пока не отобраны",
+      "Ни один депозит, стейкинг или пул ликвидности не одобрен. Сначала требуется расчёт риска и экономики.");
+    renderStrategyRecords("strategyUnclassifiedRecords", unclassified,
+      "Очередь пуста",
+      "Неоднозначные программы появятся здесь до получения достаточных данных для классификации.");
+    const accounting = data.accounting || {};
+    const no = accounting.no_capital || {};
+    const yes = accounting.capital || {};
+    const box = document.getElementById("strategyAccounting");
+    box.replaceChildren();
+    [
+      ["Без вложений", no],
+      ["С вложениями", yes]
+    ].forEach(([label, row]) => {
+      const group = document.createElement("div");
+      group.className = "strategy-accounting-group";
+      const title = document.createElement("strong");
+      title.textContent = label;
+      const line = document.createElement("span");
+      line.textContent = "Вложено: " + formatMoney(row.capital_invested_usd || 0)
+        + " · Комиссии: " + formatMoney(row.fees_spent_usd || 0)
+        + " · Получено: " + formatMoney(row.realized_rewards_usd || 0)
+        + " · Чистый реализованный результат*: " + formatMoney(row.realized_net_usd || 0);
+      group.append(title, line);
+      box.append(group);
+    });
+    const note = document.createElement("small");
+    note.textContent = "Учтено записей с привязкой к треку: " + (accounting.attributed_records || 0)
+      + ". Без привязки: " + (accounting.unassigned_records || 0)
+      + ". *Без оценки возврата principal и нереализованной стоимости активов.";
+    box.append(note);
+  } catch (error) {
+    renderStrategyRecords("strategyNoCapitalRecords", [], "Не удалось загрузить трек", error.message);
+    renderStrategyRecords("strategyCapitalRecords", [], "Не удалось загрузить трек", error.message);
+    renderStrategyRecords("strategyUnclassifiedRecords", [], "Не удалось загрузить очередь", error.message);
+  }
+}
+
+document.getElementById("strategyRefresh")?.addEventListener("click", async () => {
+  const button = document.getElementById("strategyRefresh");
+  button.disabled = true;
+  button.textContent = "Обновляю…";
+  await loadStrategies();
+  button.disabled = false;
+  button.textContent = "Обновить анализ";
+});
+
 async function loadTasks() {
   const root = document.getElementById("tasksList");
   if (!root) return;
@@ -282,7 +400,7 @@ async function loadAppData() {
     document.getElementById("metricTasks").textContent = dashboard.tasks_today ?? "—";
     document.getElementById("metricClaimable").textContent = formatMoney(dashboard.claimable_rewards_usd);
     document.getElementById("metricPnl").textContent = formatMoney(dashboard.realized_pnl_usd);
-    await Promise.all([loadOpportunities(), loadTasks(), loadWallets(), loadNotifications(), loadPlan()]);
+    await Promise.all([loadOpportunities(), loadTasks(), loadWallets(), loadNotifications(), loadPlan(), loadStrategies()]);
   } catch (error) {
     connection.classList.remove("online");
     connection.innerHTML = "<i></i> Сервер не подключён";
