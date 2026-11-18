@@ -32,7 +32,8 @@ RPC_ENDPOINTS={
     "linea":"https://linea-rpc.publicnode.com",
     "scroll":"https://scroll-rpc.publicnode.com",
 }
-NATIVE_SYMBOLS={"polygon":"POL","ethereum":"ETH","base":"ETH","arbitrum":"ETH","optimism":"ETH","linea":"ETH","scroll":"ETH"}
+NATIVE_SYMBOLS={"polygon":"POL","ethereum":"ETH","base":"ETH","arbitrum":"ETH","optimism":"ETH","linea":"ETH","scroll":"ETH","solana":"SOL"}
+SOLANA_RPC_ENDPOINT="https://api.mainnet.solana.com"
 app=FastAPI(title="Airdrop Hunter API",version="2.0.0")
 app.add_middleware(CORSMiddleware,allow_origins=os.getenv("CORS_ORIGINS","*").split(","),allow_credentials=False,allow_methods=["GET","POST","PATCH","DELETE","OPTIONS"],allow_headers=["Authorization","Content-Type"])
 
@@ -375,10 +376,31 @@ async def update_task(task_id:str,payload:TaskStatusInput,authorization: str|Non
 
 async def read_wallet_balance(client, wallet):
     chain=str(wallet.get("chain") or "").strip().lower()
+    address=str(wallet.get("address") or "")
+    if chain=="solana":
+        try:
+            response=await client.post(SOLANA_RPC_ENDPOINT,json={
+                "jsonrpc":"2.0","id":1,"method":"getBalance",
+                "params":[address,{"commitment":"finalized"}]
+            })
+            response.raise_for_status()
+            payload=response.json()
+            if payload.get("error") or not isinstance(payload.get("result"),dict):
+                raise RuntimeError("Solana RPC returned no balance")
+            lamports=int(payload["result"]["value"])
+            return {
+                **wallet,
+                "native_balance":f"{lamports/10**9:.9f}",
+                "balance_symbol":"SOL",
+                "balance_status":"ok",
+                "balance_checked_at":datetime.now(timezone.utc).isoformat(),
+            }
+        except Exception as error:
+            log.warning("Solana wallet balance read failed for %s: %s",wallet.get("id"),str(error)[:120])
+            return {**wallet,"native_balance":None,"balance_symbol":"SOL","balance_status":"unavailable"}
     endpoint=RPC_ENDPOINTS.get(chain)
     if not endpoint:
         return {**wallet,"native_balance":None,"balance_symbol":None,"balance_status":"unsupported"}
-    address=str(wallet.get("address") or "")
     if not (len(address)==42 and address.startswith("0x")):
         return {**wallet,"native_balance":None,"balance_symbol":NATIVE_SYMBOLS[chain],"balance_status":"invalid_address"}
     try:
@@ -403,7 +425,7 @@ async def read_wallet_balance(client, wallet):
 
 async def fetch_native_prices(client):
     try:
-        response=await client.get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:polygon-ecosystem-token")
+        response=await client.get("https://coins.llama.fi/prices/current/coingecko:ethereum,coingecko:polygon-ecosystem-token,coingecko:solana")
         response.raise_for_status()
         return (response.json() or {}).get("coins") or {}
     except Exception as error:
@@ -419,7 +441,7 @@ async def wallets(authorization: str|None=Header(default=None)):
         items=await asyncio.gather(*(read_wallet_balance(client,row) for row in rows))
         prices=await fetch_native_prices(client)
     now=datetime.now(timezone.utc)
-    price_ids={"polygon":"coingecko:polygon-ecosystem-token"}
+    price_ids={"polygon":"coingecko:polygon-ecosystem-token","solana":"coingecko:solana"}
     for chain in ("ethereum","base","arbitrum","optimism","linea","scroll"):
         price_ids[chain]="coingecko:ethereum"
     for item in items:
@@ -468,6 +490,84 @@ async def wallet_history(wallet_id:str,authorization: str|None=Header(default=No
     user=await auth_user(authorization)
     rows=await db_get("wallet_snapshots",user["id"],f"select=*&wallet_id=eq.{wallet_id}&order=captured_at.desc&limit=30",authorization.split(" ",1)[1])
     return {"items":rows}
+
+@app.get("/api/wallets/{wallet_id}/activity")
+async def wallet_activity(wallet_id:str,authorization: str|None=Header(default=None)):
+    user=await auth_user(authorization)
+    token=authorization.split(" ",1)[1]
+    wallets=await db_get("wallets",user["id"],f"select=id,address,chain,label&id=eq.{wallet_id}&limit=1",token)
+    if not wallets:
+        raise HTTPException(404,"Wallet not found")
+    wallet=wallets[0]
+    address=str(wallet.get("address") or "")
+    chain=str(wallet.get("chain") or "").lower()
+    async with httpx.AsyncClient(timeout=18,follow_redirects=True) as client:
+        try:
+            if chain=="solana":
+                response=await client.post(SOLANA_RPC_ENDPOINT,json={
+                    "jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress",
+                    "params":[address,{"limit":25,"commitment":"finalized"}]
+                })
+                response.raise_for_status()
+                payload=response.json()
+                if payload.get("error"):
+                    raise RuntimeError("Solana RPC returned an error")
+                items=[]
+                for row in payload.get("result") or []:
+                    signature=row.get("signature")
+                    items.append({
+                        "hash":signature,
+                        "timestamp":datetime.fromtimestamp(row["blockTime"],timezone.utc).isoformat() if row.get("blockTime") else None,
+                        "status":"failed" if row.get("err") else row.get("confirmationStatus") or "confirmed",
+                        "slot":row.get("slot"),
+                        "explorer_url":f"https://solscan.io/tx/{signature}" if signature else None,
+                    })
+                return {"chain":chain,"address":address,"items":items,"source":"Solana public RPC"}
+            if chain=="ethereum":
+                base="https://eth.blockscout.com/api/v2/addresses/"+address
+                response=await client.get(base+"/transactions")
+                response.raise_for_status()
+                payload=response.json()
+                items=[]
+                for row in payload.get("items") or []:
+                    tx_hash=row.get("hash")
+                    items.append({
+                        "hash":tx_hash,
+                        "timestamp":row.get("timestamp"),
+                        "from":(row.get("from") or {}).get("hash"),
+                        "to":(row.get("to") or {}).get("hash"),
+                        "value":row.get("value"),
+                        "fee":(row.get("fee") or {}).get("value"),
+                        "status":row.get("status"),
+                        "method":row.get("method"),
+                        "explorer_url":f"https://etherscan.io/tx/{tx_hash}" if tx_hash else None,
+                    })
+                transfer_response=await client.get(base+"/token-transfers")
+                transfer_response.raise_for_status()
+                transfer_payload=transfer_response.json()
+                transfers=[]
+                for row in transfer_payload.get("items") or []:
+                    tx_hash=row.get("transaction_hash")
+                    token=row.get("token") or {}
+                    transfers.append({
+                        "hash":tx_hash,
+                        "timestamp":row.get("timestamp"),
+                        "from":(row.get("from") or {}).get("hash"),
+                        "to":(row.get("to") or {}).get("hash"),
+                        "amount":row.get("total"),
+                        "token_symbol":token.get("symbol"),
+                        "token_name":token.get("name"),
+                        "token_type":token.get("type"),
+                        "token_address":token.get("address_hash"),
+                        "explorer_url":f"https://etherscan.io/tx/{tx_hash}" if tx_hash else None,
+                    })
+                return {"chain":chain,"address":address,"items":items,"token_transfers":transfers,"source":"Blockscout"}
+            raise HTTPException(400,"Transaction history is not configured for this chain")
+        except HTTPException:
+            raise
+        except Exception as error:
+            log.warning("Wallet activity read failed for %s: %s",wallet_id,str(error)[:160])
+            raise HTTPException(502,"Public transaction history is temporarily unavailable")
 
 @app.get("/api/push/public-key")
 async def push_key():
