@@ -55,6 +55,7 @@
         <button class="nav-item active" data-view="overview">Обзор</button>
         <button class="nav-item" data-view="strategies">Два направления</button>
         <button class="nav-item" data-view="opportunities">Возможности</button>
+        <button class="nav-item" data-view="nft-market">NFT Market</button>
         <button class="nav-item" data-view="tasks">Задания</button>
         <button class="nav-item" data-view="wallets">Кошельки</button>
         <button class="nav-item" data-view="notifications">Уведомления <span class="nav-count" id="unreadCount">0</span></button>
@@ -179,12 +180,42 @@
           <div class="assistant-disabled"><span>OpenAI API пока не настроен. Автоматические AI-рекомендации будут включены после настройки ключа и лимита расходов.</span></div>
         </article>
       </section>
-    </main>
+          <section class="view" id="view-nft-market">
+        <div class="section-heading">
+          <div><p class="eyebrow">NFT MARKET INTELLIGENCE / READ ONLY</p><h2>NFT Market Monitor</h2></div>
+          <span class="security-tag">Без транзакций</span>
+        </div>
+        <article class="panel nft-market-intro">
+          <div>
+            <p class="eyebrow">COLLECTION LISTINGS</p>
+            <h3>Проверка реальных листингов</h3>
+            <p>Загружаем активные предложения коллекции из OpenSea. Сканер нормализует цену с учётом decimals, валюту, сеть и идентификатор NFT. Сам по себе листинг не означает, что его можно купить или перепродать с прибылью.</p>
+          </div>
+          <form id="nftMarketForm" class="nft-market-form">
+            <label for="nftCollectionSlug">OpenSea collection slug</label>
+            <input id="nftCollectionSlug" type="text" maxlength="100" pattern="[A-Za-z0-9][A-Za-z0-9-]*" placeholder="например, doodles-official" autocomplete="off" required>
+            <button class="secondary-button" id="nftMarketSearch" type="submit">Загрузить листинги</button>
+            <small>Лимит 50 записей на запрос · кеш 60 секунд</small>
+          </form>
+        </article>
+        <div class="metrics-grid nft-market-metrics">
+          <article class="metric-card"><span>Листингов получено</span><strong id="nftListingsSeen">—</strong><small>Ответ провайдера</small></article>
+          <article class="metric-card"><span>Активных записей</span><strong id="nftListingsActive">—</strong><small>После нормализации</small></article>
+          <article class="metric-card"><span>Последняя проверка</span><strong id="nftListingsChecked">—</strong><small>Время UTC</small></article>
+          <article class="metric-card"><span>Провайдер</span><strong id="nftProviderName">OpenSea</strong><small>Один рынок · не арбитраж</small></article>
+        </div>
+        <div class="notice"><span class="notice-icon">!</span><p><strong>Ограничение:</strong> для live-запросов необходим серверный OPENSEA_API_KEY. Ключ не хранится в браузере. Пока ключ не настроен, сканер честно покажет статус интеграции. Второй маркетплейс, исполнимость продажи и полная стоимость сделки ещё не подключены.</p></div>
+        <div id="nftMarketResults" class="record-list">
+          <article class="panel empty-page"><span class="empty-icon large">▧</span><h3>Ожидает коллекцию</h3><p>Введи slug коллекции OpenSea, чтобы запросить публичные листинги.</p></article>
+        </div>
+      </section>
+</main>
 
     <nav class="mobile-nav" aria-label="Нижняя навигация">
       <button class="mobile-nav-item active" data-view="overview"><span>⌂</span>Обзор</button>
       <button class="mobile-nav-item" data-view="strategies"><span>↗</span>Треки</button>
       <button class="mobile-nav-item" data-view="opportunities"><span>⌕</span>Поиск</button>
+      <button class="mobile-nav-item" data-view="nft-market"><span>▧</span>NFT</button>
       <button class="mobile-nav-item" data-view="tasks"><span>☷</span>Задания</button>
       <button class="mobile-nav-item" data-view="wallets"><span>◇</span>Кошельки</button>
       <button class="mobile-nav-item" data-view="notifications"><span>♧</span>Уведомления</button>
