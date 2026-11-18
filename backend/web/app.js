@@ -30,6 +30,11 @@ document.querySelectorAll("[data-go]").forEach((button) => {
   button.addEventListener("click", () => activateView(button.dataset.go));
 });
 
+document.getElementById("nftMarketForm")?.addEventListener("submit", loadNftMarket);
+document.querySelectorAll('[data-view="nft-market"]').forEach((button) => {
+  button.addEventListener("click", () => loadNftMarket(null, true));
+});
+
 function formatMoney(value) {
   if (value === null || value === undefined || value === "") return "—";
   const n = Number(value);
@@ -194,6 +199,60 @@ document.querySelectorAll("[data-open-filter]").forEach((button) => {
     renderOpportunities();
   });
 });
+
+async function loadNftMarket(event, initial = false) {
+  if (event) event.preventDefault();
+  const input = document.getElementById("nftCollectionSlug");
+  const root = document.getElementById("nftMarketResults");
+  const button = document.getElementById("nftMarketSearch");
+  if (!root || !input || !button) return;
+  const slug = input.value.trim().toLowerCase();
+  if (!slug) {
+    if (initial) return;
+    showToast("Укажи slug коллекции OpenSea.");
+    input.focus();
+    return;
+  }
+  if (!/^[a-z0-9][a-z0-9-]{0,99}$/.test(slug)) {
+    showToast("Slug может содержать только латинские буквы, цифры и дефис.");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Загружаю…";
+  try {
+    const data = await request("/api/nft/market/" + encodeURIComponent(slug));
+    document.getElementById("nftListingsSeen").textContent = String(data.items_seen ?? "—");
+    document.getElementById("nftListingsActive").textContent = String(data.active_listings ?? "—");
+    document.getElementById("nftListingsChecked").textContent = formatDate(data.checked_at) || "—";
+    document.getElementById("nftProviderName").textContent = data.provider || "OpenSea";
+    root.replaceChildren();
+    const notice = document.createElement("p");
+    notice.className = "form-note";
+    notice.textContent = data.notice || "Публичные данные; исполнимость не гарантируется.";
+    root.append(notice);
+    const items = data.listings || [];
+    if (!items.length) {
+      renderEmpty(root, "⌕", "Активные листинги не найдены", "Проверь slug или повтори запрос позже.");
+      return;
+    }
+    items.forEach((item) => {
+      const meta = [item.chain, item.currency + " " + item.price, "Token #" + item.token_id, "Статус: " + item.status].join(" · ");
+      root.append(recordCard(item.collection, "Контракт: " + (item.contract || "не указан") + " · Количество: " + (item.remaining_quantity ?? "не указано"), meta, item.url));
+    });
+  } catch (error) {
+    const message = error.message || "Не удалось загрузить листинги.";
+    renderEmpty(root, "!", "Сканер пока недоступен", message);
+    if (message.toLowerCase().includes("api key")) {
+      const hint = document.createElement("p");
+      hint.className = "form-note";
+      hint.textContent = "Нужно добавить OPENSEA_API_KEY в серверные переменные Railway. Не вставляй ключ в форму или чат.";
+      root.append(hint);
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = "Загрузить листинги";
+  }
+}
 
 function strategyStatus(item) {
   const blockers = Array.isArray(item.blockers) ? item.blockers : [];
