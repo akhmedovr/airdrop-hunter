@@ -20,6 +20,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check backend/web/app.js
+          node --check backend/web/nft-yield.js
           node --check backend/web/sw.js
           python -m compileall -q backend
       - name: Validate PWA manifest
