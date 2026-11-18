@@ -192,7 +192,7 @@ class RewardSourceParserTests(unittest.TestCase):
         self.assertAlmostEqual(evidence["equal_share_usd_month_24h"], 1.2090, places=4)
         self.assertAlmostEqual(evidence["heartbeat_fee_scenario_usd_month"], 0.2219, places=4)
         self.assertAlmostEqual(evidence["net_equal_share_usd_month_1_5h"], 1.1430, places=4)
-        self.assertAlmostEqual(evidence["net_equal_share_usd_month_24h"], 0.9870, places=4)
+        self.assertAlmostEqual(evidence["net_equal_share_usd_month_24h"], 0.9871, places=4)
         self.assertFalse(rows[0]["reward_value_verified"])
 
     def test_acurast_watch_rejects_missing_no_stake_or_fee_evidence(self):
