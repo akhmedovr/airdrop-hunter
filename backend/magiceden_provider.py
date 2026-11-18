@@ -4,6 +4,7 @@ Uses the public, unauthenticated API only. No instruction, signing, order,
 purchase, wallet or transaction endpoints are called.
 """
 import asyncio
+import os
 import re
 import time
 from decimal import Decimal, InvalidOperation
@@ -92,6 +93,8 @@ async def fetch_collection_listings(symbol: str, limit: int = 100) -> dict[str, 
     symbol = str(symbol or "").strip()
     if not _SYMBOL_RE.fullmatch(symbol):
         raise ValueError("Invalid Magic Eden collection symbol")
+    if os.getenv("MAGICEDEN_API_ENABLED", "").strip().lower() != "true":
+        raise MagicEdenProviderError("Magic Eden integration is disabled pending terms and geographic eligibility review", 503)
     limit = max(1, min(int(limit), 100))
     cached = _CACHE.get(symbol)
     now = time.monotonic()
