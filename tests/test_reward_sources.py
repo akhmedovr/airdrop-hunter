@@ -173,6 +173,28 @@ class RewardSourceParserTests(unittest.TestCase):
         self.assertEqual(evidence["dashboard_updated_at"], "2026-11-18T07:32:54+00:00")
         self.assertAlmostEqual(evidence["equal_share_acu_month_1_5h"], 11.5124, places=4)
 
+    def test_acurast_watch_converts_equal_share_baseline_using_price_snapshot(self):
+        rewards = "<body>Base Benchmark Rewards independent of their participation in Staked Compute 856.164 ACU per epoch</body>"
+        provider = "<body>Processor Lite iPhone 8 or newer</body>"
+        faq = "<body>0.0013 ACU per transaction</body>"
+        dashboard = (
+            '{"active_detail":{"1.5h":35697,"24h":40300},'
+            '"last_updated":"2026-11-18T07:32:54Z"}'
+        )
+        price = '{"acurast":{"usd":0.118556}}'
+        rows = parse_acurast_processor_watch(
+            rewards, provider, faq, dashboard, price,
+            checked_at=datetime(2026, 11, 18, 7, 37, tzinfo=timezone.utc),
+        )
+        evidence = rows[0]["evidence"][1]
+        self.assertAlmostEqual(evidence["acu_price_usd"], 0.118556, places=6)
+        self.assertAlmostEqual(evidence["equal_share_usd_month_1_5h"], 1.3649, places=4)
+        self.assertAlmostEqual(evidence["equal_share_usd_month_24h"], 1.2090, places=4)
+        self.assertAlmostEqual(evidence["heartbeat_fee_scenario_usd_month"], 0.2219, places=4)
+        self.assertAlmostEqual(evidence["net_equal_share_usd_month_1_5h"], 1.1430, places=4)
+        self.assertAlmostEqual(evidence["net_equal_share_usd_month_24h"], 0.9871, places=4)
+        self.assertFalse(rows[0]["reward_value_verified"])
+
     def test_acurast_watch_rejects_missing_no_stake_or_fee_evidence(self):
         rewards = "<body>Base Benchmark Rewards 856.164 ACU per epoch</body>"
         provider = "<body>Processor Lite iPhone 8 or newer</body>"
