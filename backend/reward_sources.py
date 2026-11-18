@@ -532,10 +532,26 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
         return []
     now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
     network_text = _visible_text(network_html)
-    active_1_5h_match = re.search(r"1\.5h Active\s+([\d,]+)", network_text, re.IGNORECASE)
-    active_24h_match = re.search(r"24h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    active_1_5h_match = (
+        re.search(r'"1\.5h"\s*:\s*([\d,]+)', network_text, re.IGNORECASE)
+        or re.search(r"1\.5h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    )
+    active_24h_match = (
+        re.search(r'"24h"\s*:\s*([\d,]+)', network_text, re.IGNORECASE)
+        or re.search(r"24h Active\s+([\d,]+)", network_text, re.IGNORECASE)
+    )
     active_1_5h = int(active_1_5h_match.group(1).replace(",", "")) if active_1_5h_match else None
     active_24h = int(active_24h_match.group(1).replace(",", "")) if active_24h_match else None
+    updated_match = re.search(r'"last_updated"\s*:\s*"([^"]+)"', network_text)
+    dashboard_updated_at = None
+    if updated_match:
+        try:
+            dashboard_updated_at = datetime.fromisoformat(updated_match.group(1).replace("Z", "+00:00"))
+            if (now - dashboard_updated_at.astimezone(timezone.utc)).total_seconds() > 6 * 3600:
+                active_1_5h = active_24h = None
+                dashboard_updated_at = None
+        except ValueError:
+            dashboard_updated_at = None
     network_pool_month = 856.164 * 16 * 30
     equal_share_1_5h = round(network_pool_month / active_1_5h, 4) if active_1_5h else None
     equal_share_24h = round(network_pool_month / active_24h, 4) if active_24h else None
@@ -554,6 +570,7 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
             "official": False,
             "url": "https://acurast.online/",
             "checked_at": now.isoformat(),
+            "dashboard_updated_at": dashboard_updated_at.isoformat() if dashboard_updated_at else None,
             "active_processors_1_5h": active_1_5h,
             "active_processors_24h": active_24h,
             "network_base_pool_acu_per_epoch": 856.164,

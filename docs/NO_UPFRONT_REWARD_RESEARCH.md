@@ -42,7 +42,7 @@ Assessment:
 - No hardware purchase and no staking appear necessary for the base pool if an already-owned compatible phone is used.
 - This is not yet a verified zero-cash-start opportunity because initial network fee funding and RU eligibility are unresolved.
 - Do not buy ACU, rent infrastructure, or use VPN/location evasion to attempt participation.
-- Potential per-device income is currently unquantifiable; do not multiply the network-wide pool by token price and call it personal earnings.
+- A personal device's actual payout remains unknown; the equal-share baseline is not an earnings forecast. Do not multiply the network-wide pool by token price and call it personal earnings.
 
 ## Explicitly excluded
 

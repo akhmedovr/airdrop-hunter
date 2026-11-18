@@ -155,6 +155,24 @@ class RewardSourceParserTests(unittest.TestCase):
         self.assertAlmostEqual(evidence[1]["heartbeat_fee_scenario_acu_month"], 1.872, places=3)
         self.assertIn("not a personal payout forecast", rows[0]["reward_description"])
 
+    def test_acurast_watch_parses_live_json_metrics_and_timestamp(self):
+        rewards = "<body>Base Benchmark Rewards independent of their participation in Staked Compute 856.164 ACU per epoch</body>"
+        provider = "<body>Processor Lite iPhone 8 or newer</body>"
+        faq = "<body>0.0013 ACU per transaction</body>"
+        dashboard = (
+            '{"active_detail":{"1.5h":35697,"24h":40300},'
+            '"last_updated":"2026-11-18T07:32:54Z"}'
+        )
+        rows = parse_acurast_processor_watch(
+            rewards, provider, faq, dashboard,
+            checked_at=datetime(2026, 11, 18, 7, 37, tzinfo=timezone.utc),
+        )
+        evidence = rows[0]["evidence"][1]
+        self.assertEqual(evidence["active_processors_1_5h"], 35697)
+        self.assertEqual(evidence["active_processors_24h"], 40300)
+        self.assertEqual(evidence["dashboard_updated_at"], "2026-11-18T07:32:54+00:00")
+        self.assertAlmostEqual(evidence["equal_share_acu_month_1_5h"], 11.5124, places=4)
+
     def test_acurast_watch_rejects_missing_no_stake_or_fee_evidence(self):
         rewards = "<body>Base Benchmark Rewards 856.164 ACU per epoch</body>"
         provider = "<body>Processor Lite iPhone 8 or newer</body>"
