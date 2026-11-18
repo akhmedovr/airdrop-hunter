@@ -23,12 +23,16 @@ Verified facts:
 - Acurast documents a Base Benchmark Rewards pool for compute providers that is independent of participation in Staked Compute.
 - The documented network-wide Base Benchmark pool is 856.164 ACU per epoch (900 blocks, roughly 1.5 hours).
 - The pool is divided across benchmark metric pools and all competing providers. A phone's share depends on its benchmark score and the aggregate score/competition in the relevant pool.
+- Acurast's official site linked the community-built Acurast Analytics dashboard. At the 2026-11-18 check, that dashboard showed 35,704 processors active over 1.5 hours and 40,292 over 24 hours (172,568 registered).
+- Equal-share arithmetic using the documented 856.164 ACU/epoch pool, 16 epochs/day and those active-count denominators gives about **10.20–11.51 ACU per device per 30-day month**. This is only a network-average baseline assuming equal benchmark scores; it is not a forecast or a promise for any specific phone. Actual allocations are score-weighted across benchmark pools.
+- At a CoinMarketCap snapshot of about $0.099922/ACU on 2026-11-18, that equal-share baseline is roughly **$1.02–$1.15 gross per month** before fees, battery wear, electricity and any other costs. Token prices can change.
+- The FAQ says processors heartbeat every 30 minutes and that heartbeats/other chain reports incur around 0.0013 ACU per transaction, but does not explicitly state that every heartbeat is a separate transaction. A conservative scenario of 48 transactions/day would cost about **1.872 ACU/month**, or roughly $0.19 at the same price snapshot. Under that assumption, the equal-share remainder is roughly **$0.83–$0.96/month** before other costs. This fee scenario is not a confirmed charge schedule.
 - Processor Lite is designed for everyday phones. Official docs list iOS 16+ and Android 12+ compatibility; it does not require factory-resetting the everyday phone.
 - Staking adds a separate reward pool but is not required for the Base Benchmark pool.
 - The FAQ reports network transaction fees typically around 0.0013 ACU per transaction.
 
 Unknown / blockers:
-- No official per-device or monthly reward amount is published in the reviewed docs. The 856.164 ACU figure is the network-wide pool, not an individual user's reward.
+- No official per-device or monthly reward amount is published in the reviewed docs. The 856.164 ACU figure is the network-wide pool, not an individual user's reward. The 10.20–11.51 ACU figure above is only a calculated equal-share baseline from a linked community dashboard, not an official quote.
 - Current Russian-resident eligibility has not been explicitly confirmed. General legal terms do not establish RU approval.
 - KYC requirements for an ordinary processor reward payout are not confirmed.
 - Whether a brand-new processor wallet can cover initial transaction fees without acquiring ACU is not confirmed.
