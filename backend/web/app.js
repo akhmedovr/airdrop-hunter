@@ -31,6 +31,7 @@ document.querySelectorAll("[data-go]").forEach((button) => {
 });
 
 document.getElementById("nftMarketForm")?.addEventListener("submit", loadNftMarket);
+document.getElementById("solanaMarketForm")?.addEventListener("submit", loadSolanaMarket);
 document.querySelectorAll('[data-view="nft-market"]').forEach((button) => {
   button.addEventListener("click", () => loadNftMarket(null, true));
 });
@@ -251,6 +252,55 @@ async function loadNftMarket(event, initial = false) {
   } finally {
     button.disabled = false;
     button.textContent = "Загрузить листинги";
+  }
+}
+
+
+async function loadSolanaMarket(event) {
+  if (event) event.preventDefault();
+  const input = document.getElementById("solanaCollectionSymbol");
+  const root = document.getElementById("solanaMarketResults");
+  const button = document.getElementById("solanaMarketSearch");
+  if (!root || !input || !button) return;
+  const symbol = input.value.trim();
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(symbol)) {
+    showToast("Укажи корректный symbol коллекции Solana.");
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Загружаю…";
+  try {
+    const data = await request("/api/nft/solana/" + encodeURIComponent(symbol));
+    document.getElementById("solanaListingsSeen").textContent = String(data.items_seen ?? "—");
+    document.getElementById("solanaListingsActive").textContent = String(data.active_listings ?? "—");
+    document.getElementById("solanaListingsChecked").textContent = formatDate(data.checked_at) || "—";
+    root.replaceChildren();
+    const attribution = document.createElement("p");
+    attribution.className = "form-note";
+    attribution.append(document.createTextNode("Data by "));
+    const source = document.createElement("a");
+    source.href = "https://magiceden.io";
+    source.target = "_blank";
+    source.rel = "noopener noreferrer";
+    source.textContent = "Magic Eden";
+    attribution.append(source);
+    attribution.append(document.createTextNode(" · " + (data.notice || "Read-only market data.")));
+    root.append(attribution);
+    const items = data.listings || [];
+    if (!items.length) {
+      renderEmpty(root, "⌕", "Листинги не найдены", "Проверь symbol коллекции или повтори запрос позже.");
+      return;
+    }
+    items.forEach((item) => {
+      const meta = [item.currency + " " + item.price, item.listing_source, "Solana"].join(" · ");
+      root.append(recordCard(item.collection, "Mint: " + item.token_id + " · Продавец: " + (item.seller || "не указан"), meta, item.url));
+    });
+  } catch (error) {
+    renderEmpty(root, "!", "Magic Eden пока недоступен", error.message || "Не удалось загрузить листинги.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Загрузить Solana-листинги";
   }
 }
 
