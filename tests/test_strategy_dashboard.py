@@ -68,3 +68,60 @@ def test_dashboard_sort_handles_missing_evidence_timestamps():
           "opportunity_assessment": {"activity_mode": "unattended_node", "evidence_fresh": False}}]},
     ], [], [], [])
     assert len(result["tracks"]["no_capital"]) == 2
+
+
+def test_galxe_quest_is_not_misclassified_as_unattended_node():
+    result = build_strategy_dashboard([{
+        "title": "Follow Lighthouse Storage",
+        "url": "https://app.galxe.com/quest/Lighthouse/GC3K5tZeFb",
+        "evidence": [{
+            "source": "Galxe (sunsetting)",
+            "url": "https://app.galxe.com/quest/Lighthouse/GC3K5tZeFb",
+            "opportunity_assessment": {
+                "activity_mode": "unattended_node",
+                "required_capital_usd": None,
+                "status": "blocked",
+                "blockers": ["manual_action_required"],
+            },
+        }],
+    }], [], [], [])
+    assert len(result["tracks"]["no_capital"]) == 0
+    assert len(result["tracks"]["unclassified"]) == 1
+
+
+def test_referral_program_is_not_assumed_to_require_owner_capital():
+    result = build_strategy_dashboard([{
+        "title": "Aevo — Referral Program",
+        "reward_description": "Referrers earn commissions from referred users' trading volume.",
+        "evidence": [{
+            "source": "DeFiLlama Rewards",
+            "url": "https://defillama.com/protocol/aevo",
+            "opportunity_assessment": {
+                "activity_mode": "trading_liquidity",
+                "required_capital_usd": None,
+                "status": "blocked",
+                "blockers": ["referrer_requirements_unknown"],
+            },
+        }],
+    }], [], [], [])
+    assert len(result["tracks"]["capital"]) == 0
+    assert len(result["tracks"]["unclassified"]) == 1
+
+
+def test_galxe_quest_with_explicit_staking_action_is_capital_track():
+    result = build_strategy_dashboard([{
+        "title": "Stake 500 USDT to unlock rewards",
+        "url": "https://app.galxe.com/quest/example/123",
+        "reward_description": "Stake 500 USDT and maintain the position for the campaign.",
+        "evidence": [{
+            "source": "Galxe",
+            "url": "https://app.galxe.com/quest/example/123",
+            "opportunity_assessment": {
+                "activity_mode": "unattended_node",
+                "required_capital_usd": None,
+                "status": "blocked",
+                "blockers": ["country_eligibility_not_confirmed"],
+            },
+        }],
+    }], [], [], [])
+    assert len(result["tracks"]["capital"]) == 1
