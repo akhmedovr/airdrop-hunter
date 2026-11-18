@@ -556,7 +556,7 @@ def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, network
     equal_share_1_5h = round(network_pool_month / active_1_5h, 4) if active_1_5h else None
     equal_share_24h = round(network_pool_month / active_24h, 4) if active_24h else None
     heartbeat_fee_scenario = round(0.0013 * 48 * 30, 4)
-    price_match = re.search(r'"usd"\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)', _visible_text(price_json), re.IGNORECASE)
+    price_match = re.search(r'"usd"\s*:\s*([0-9]+(?:\.[0-9]+)?)', _visible_text(price_json), re.IGNORECASE)
     acu_price_usd = float(price_match.group(1)) if price_match else None
     equal_share_usd_1_5h = round(equal_share_1_5h * acu_price_usd, 4) if equal_share_1_5h and acu_price_usd else None
     equal_share_usd_24h = round(equal_share_24h * acu_price_usd, 4) if equal_share_24h and acu_price_usd else None
