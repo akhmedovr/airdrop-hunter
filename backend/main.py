@@ -10,6 +10,7 @@ from pywebpush import webpush, WebPushException
 from screening import normalize_campaign_record, preserve_review_state, should_create_review_task
 from reward_sources import parse_defillama_rewards_payload, parse_perp_programs, parse_asentum_watch, parse_push_season3_watch, parse_flop_testnet_watch, parse_aioz_depin_watch, parse_acurast_processor_watch
 from strategy_dashboard import build_strategy_dashboard
+from nft_provider import fetch_collection_best_listings, OpenSeaProviderError
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL","INFO"))
 log=logging.getLogger("airdrop-hunter")
@@ -707,6 +708,17 @@ async def ready():
     if not OWNER_EMAIL:
         needs.append("OWNER_EMAIL for single-owner scheduled scans")
     return {"ready":bool(SUPABASE_URL and SUPABASE_ANON_KEY),"needs":needs}
+
+@app.get("/api/nft/market/{slug}")
+async def nft_market_listings(slug: str, authorization: str|None=Header(default=None)):
+    await auth_user(authorization)
+    try:
+        return await fetch_collection_best_listings(slug, limit=50)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    except OpenSeaProviderError as error:
+        raise HTTPException(error.status_code, str(error))
+
 
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles

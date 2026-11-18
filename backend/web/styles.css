@@ -320,3 +320,16 @@ button:focus-visible,a:focus-visible{outline:2px solid #a99cff;outline-offset:3p
  .auth-card{padding:25px 20px;border-radius:22px}
 }
 @media(prefers-reduced-motion:reduce){.launch-card,.record-card,.secondary-button{transition:none}}
+
+
+/* NFT Market Monitor */
+.nft-market-intro{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(240px,.8fr);gap:24px;align-items:center}
+.nft-market-intro h3{margin:0 0 10px}
+.nft-market-intro p{max-width:720px;color:var(--muted)}
+.nft-market-form{display:grid;gap:10px;padding:18px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.025)}
+.nft-market-form label{font-size:.82rem;color:var(--muted)}
+.nft-market-form input{width:100%;min-width:0;padding:13px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(5,10,20,.55);color:var(--text)}
+.nft-market-form small{color:var(--muted);font-size:.75rem}
+.nft-market-metrics{margin:18px 0}
+#nftMarketResults .form-note{margin:10px 4px}
+@media(max-width:760px){.nft-market-intro{grid-template-columns:1fr}.nft-market-form{padding:14px}}
