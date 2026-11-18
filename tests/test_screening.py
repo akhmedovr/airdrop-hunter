@@ -186,6 +186,8 @@ class ScreeningTests(unittest.TestCase):
     def test_acurast_no_stake_candidate_is_low_touch_but_not_income_verified(self):
         normalized = normalize_campaign_record({
             "title": "Acurast — no-stake smartphone compute rewards",
+            "url": "https://docs.acurast.com/processors/rewards/",
+            "eligibility": "unknown",
             "reward_description": (
                 "Base Benchmark Rewards are independent of staking. "
                 "Processor Lite supports iOS 16+. Network transaction fees apply."
@@ -206,11 +208,21 @@ class ScreeningTests(unittest.TestCase):
             }],
         })
         assessment = normalized["evidence"][0]["opportunity_assessment"]
+        for field in ("reward_kind", "activity_mode", "country_eligibility",
+                      "required_capital_usd", "lockup_days", "reward_value_verified"):
+            self.assertNotIn(field, normalized)
         self.assertEqual(assessment["activity_mode"], "unattended_node")
         self.assertEqual(assessment["status"], "blocked")
         self.assertIn("country_eligibility_not_confirmed", assessment["blockers"])
         self.assertIn("kyc_requirement_unknown", assessment["blockers"])
         self.assertIn("realizable_reward_value_unknown", assessment["blockers"])
+        ordinary = normalize_campaign_record({
+            "title": "Ordinary discovery",
+            "url": "https://example.org/",
+            "eligibility": "unknown",
+            "evidence": [],
+        })
+        self.assertEqual(set(normalized), set(ordinary))
 
     def test_normalizer_attaches_fail_closed_opportunity_assessment(self):
         normalized = normalize_campaign_record({
