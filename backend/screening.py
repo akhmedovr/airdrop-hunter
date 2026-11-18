@@ -1,6 +1,8 @@
 """Conservative screening rules for discovery, automation and economic gating."""
 import re
 
+from opportunity_engine import assess_opportunity
+
 _CASH_RE = re.compile(r"(?:\$\s*\d|\b(?:usdt|usdc|usd|eth|btc)\b)", re.IGNORECASE)
 _REWARD_RE = re.compile(r"\b(?:win|reward|raffle|giveaway|earn|prize|payout)\b", re.IGNORECASE)
 _HIGH_COST_RE = re.compile(
@@ -143,10 +145,27 @@ def normalize_campaign_record(record: dict) -> dict:
         normalized.setdefault(field, default.copy() if isinstance(default, list) else default)
     automation = classify_automation_fit(normalized)
     economics = assess_economic_gate(normalized, automation)
+    activity_modes = {
+        "node_uptime": "unattended_node",
+        "active_trading_or_liquidity": "trading_liquidity",
+        "manual_quests": "manual_quests",
+        "passive_holding_or_vault": "passive_holding",
+    }
+    opportunity = assess_opportunity({
+        **normalized,
+        "country_eligibility": normalized.get("country_eligibility", normalized.get("eligibility", "unknown")),
+        "reward_usd": normalized.get("estimated_reward_usd"),
+        "reward_value_verified": normalized.get("reward_value_verified") is True,
+        "total_cost_usd": normalized.get("cost_estimate_usd"),
+        "total_cost_verified": normalized.get("cost_estimate_verified") is True,
+        "costs_complete": normalized.get("costs_complete") is True,
+        "activity_mode": normalized.get("activity_mode") or activity_modes.get(automation["mode"], "unknown"),
+    })
     evidence = normalized.get("evidence")
     if isinstance(evidence, list):
         normalized["evidence"] = [
-            {**entry, "automation_assessment": automation, "economic_assessment": economics}
+            {**entry, "automation_assessment": automation, "economic_assessment": economics,
+             "opportunity_assessment": opportunity}
             if isinstance(entry, dict) else entry
             for entry in evidence
         ]
@@ -158,6 +177,14 @@ def normalize_campaign_record(record: dict) -> dict:
             f"{automation_marker} {automation['fit']} | mode={automation['mode']} | "
             f"user_action={automation['user_action']} | capital={automation['capital_mode']}. "
             f"{automation['reason']}"
+        )
+    opportunity_marker = "Opportunity engine (evidence-first):"
+    if opportunity_marker not in summary:
+        blockers = ", ".join(opportunity["blockers"]) or "none"
+        notes.append(
+            f"{opportunity_marker} {opportunity['status']} | "
+            f"priority={opportunity['research_priority_score']} | blockers={blockers}. "
+            "This is a research queue score, not a payout probability."
         )
     economic_marker = "Economic gate (conservative):"
     if economic_marker not in summary:
