@@ -127,3 +127,17 @@ h1,h2,h3,p{margin-top:0}h1{font:800 clamp(34px,5vw,56px)/1.06 Manrope,sans-serif
   font-size: 12px;
   line-height: 1.5;
 }
+
+
+/* Live two-track strategy dashboard */
+.strategy-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.strategy-live-grid>.panel{min-width:0}
+.strategy-section-note{font-size:11px;color:var(--muted);line-height:1.6;margin:12px 0}
+.strategy-accounting{display:grid;gap:12px;min-width:min(100%,440px)}
+.strategy-accounting-group{display:grid;gap:5px}
+.strategy-accounting-group strong{font-size:11px;color:var(--accent)}
+.strategy-accounting-group span,.strategy-accounting small{font-size:10px;line-height:1.6;color:var(--muted)}
+.strategy-accounting small{display:block;padding-top:8px;border-top:1px solid var(--line)}
+.strategy-record-detail{font-size:11px!important;line-height:1.65!important;color:#c4d0df!important;padding-top:10px;border-top:1px solid var(--line)}
+.strategy-watchlist{margin-top:16px}
+@media(max-width:850px){.strategy-live-grid{grid-template-columns:1fr}.strategy-accounting{min-width:0}}
