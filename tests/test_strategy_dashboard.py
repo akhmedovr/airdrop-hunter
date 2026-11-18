@@ -125,3 +125,9 @@ def test_galxe_quest_with_explicit_staking_action_is_capital_track():
         }],
     }], [], [], [])
     assert len(result["tracks"]["capital"]) == 1
+
+
+def test_agent_usage_with_zero_fiat_capital_appears_in_no_capital_track():
+    result = build_strategy_dashboard([campaign("agent_usage", 0)], [], [], [])
+    assert len(result["tracks"]["no_capital"]) == 1
+    assert result["tracks"]["no_capital"][0]["estimated_reward_usd"] is None

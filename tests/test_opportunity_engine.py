@@ -101,3 +101,14 @@ class OpportunityEngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_agent_usage_is_low_touch_but_not_reward_approved(self):
+        item = dict(self.valid, activity_mode="agent_usage", reward_kind="unknown",
+                    reward_value_verified=False, reward_usd=None,
+                    country_eligibility="unknown", required_capital_usd=0)
+        result = assess_opportunity(item, now=self.now)
+        self.assertEqual(result["status"], "blocked")
+        self.assertNotIn("not_unattended_low_touch", result["blockers"])
+        self.assertIn("country_eligibility_not_confirmed", result["blockers"])
+        self.assertIn("realizable_reward_value_unknown", result["blockers"])
