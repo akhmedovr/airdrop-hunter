@@ -52,7 +52,7 @@
   async function load() {
     root.replaceChildren(node("p","nft-yield-empty","Загружаю проверенные источники…"));
     try {
-      const response=await fetch("/api/nft/yield",{headers:window.__AH_AUTH_TOKEN?{Authorization:"Bearer "+window.__AH_AUTH_TOKEN}:{}});
+      const response=await fetch("/api/nft/yield");
       if(!response.ok) throw new Error("API вернул HTTP "+response.status);
       const data=await response.json(); records=data.items||[];
       const summary=data.summary||{};
