@@ -73,6 +73,5 @@
   }));
   document.getElementById("nftYieldRefresh")?.addEventListener("click",load);
   document.querySelectorAll('[data-view="nft-yield"]').forEach((button)=>button.addEventListener("click",load));
-  const authObserver=setInterval(()=>{ if(window.__AH_AUTH_TOKEN){clearInterval(authObserver);load();}},250);
-  window.addEventListener("beforeunload",()=>clearInterval(authObserver));
+  load();
 })();
