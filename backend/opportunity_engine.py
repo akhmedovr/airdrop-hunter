@@ -13,7 +13,7 @@ ELIGIBILITY_STATES = {"eligible", "ineligible", "unknown"}
 REWARD_KINDS = {"direct_token", "stablecoin", "points", "nft", "discount", "unknown"}
 ACTIVITY_MODES = {
     "unattended_node", "storage_compute_bandwidth", "passive_holding",
-    "manual_quests", "trading_liquidity", "social_tasks", "unknown",
+    "manual_quests", "agent_usage", "trading_liquidity", "social_tasks", "unknown",
 }
 
 
@@ -104,7 +104,7 @@ def assess_opportunity(record: dict, country: str = SUPPORTED_COUNTRY,
         blockers.append("realizable_reward_value_unknown")
     if cost_usd is None:
         blockers.append("complete_cost_basis_unknown")
-    if mode not in {"unattended_node", "storage_compute_bandwidth"}:
+    if mode not in {"unattended_node", "storage_compute_bandwidth", "agent_usage"}:
         blockers.append("not_unattended_low_touch")
     if capital is None:
         blockers.append("capital_requirement_unknown")
