@@ -511,3 +511,79 @@ def parse_aioz_depin_watch(cli_html, gui_html, checked_at=None):
             "Multiple instances behind one public IP share task assignments and can reduce rewards."
         ),
     }]
+
+
+def parse_acurast_processor_watch(rewards_html, provider_html, faq_html, checked_at=None):
+    """Track Acurast's no-stake base compute pool without inventing per-device earnings."""
+    rewards = _visible_text(rewards_html).lower()
+    provider = _visible_text(provider_html).lower()
+    faq = _visible_text(faq_html).lower()
+    required_signals = (
+        "base benchmark rewards",
+        "independent of their participation in staked compute",
+        "856.164 acu per epoch",
+    )
+    if not all(signal in rewards for signal in required_signals):
+        return []
+    if "processor lite" not in provider or "iphone 8 or newer" not in provider:
+        return []
+    if "0.0013 acu per transaction" not in faq:
+        return []
+    now = (checked_at or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    return [{
+        "title": "Acurast — no-stake smartphone compute rewards",
+        "project_name": "Acurast",
+        "url": "https://docs.acurast.com/processors/rewards/",
+        "chain": "Acurast Mainnet",
+        "reward_kind": "direct_token",
+        "activity_mode": "unattended_node",
+        "country_eligibility": "unknown",
+        "kyc_required": None,
+        "required_capital_usd": 0,
+        "lockup_days": 0,
+        "reward_value_verified": False,
+        "cost_estimate_verified": False,
+        "costs_complete": False,
+        "reward_description": (
+            "Official Acurast documentation confirms a Base Benchmark Rewards pool distributed to phone "
+            "compute providers independently of staking. The documented network-wide pool is 856.164 ACU "
+            "per epoch (about 1.5 hours), shared across benchmark pools and all competing providers. "
+            "This is NOT the reward per phone. The individual share depends on benchmark scores and the "
+            "active provider pool; no verified per-device or monthly amount is published. Processor Lite "
+            "supports iOS 16+ and Android 12+; existing compatible hardware can be used without buying a node. "
+            "The FAQ reports network transaction fees around 0.0013 ACU each. Wallet funding/fee coverage, "
+            "Russian-resident eligibility and KYC are not confirmed. No staking is required for the base pool."
+        ),
+        "confidence": 0.55,
+        "official_rules_url": "https://acurast.com/terms-conditions/",
+        "evidence": [{
+            "source": "Acurast official processor rewards and onboarding documentation",
+            "official": True,
+            "url": "https://docs.acurast.com/processors/rewards/",
+            "source_url": "https://docs.acurast.com/processors/rewards/",
+            "provider_url": "https://docs.acurast.com/processors/become-compute-provider/",
+            "faq_url": "https://docs.acurast.com/faq/",
+            "terms_url": "https://acurast.com/terms-conditions/",
+            "checked_at": now.isoformat(),
+            "signals": [
+                "856.164 ACU network-wide base pool per epoch",
+                "base pool independent of staking",
+                "Processor Lite supports iOS 16+ and Android 12+",
+                "approximately 0.0013 ACU per network transaction",
+            ],
+            "per_device_reward": None,
+            "monthly_reward_estimate": None,
+            "country_eligibility": "unknown",
+            "kyc_required": None,
+        }],
+        "ai_summary": (
+            "Best current no-stake hardware-fit lead, not approved for participation yet. A compatible existing "
+            "phone may contribute compute without buying hardware or staking, but a per-phone payout cannot be "
+            "calculated from public data. Verify Russian-resident eligibility and how initial network fees are "
+            "covered before onboarding. Do not use VPN or false residency details. Do not buy ACU to start."
+        ),
+        "anti_sybil_notes": (
+            "One genuine processor identity per actual device. Do not clone identities, use device farms, "
+            "spoof location or bypass KYC/geo-controls. Never share recovery phrases or private keys."
+        ),
+    }]
