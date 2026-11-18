@@ -201,7 +201,7 @@
         <div class="metrics-grid nft-market-metrics">
           <article class="metric-card"><span>Листингов получено</span><strong id="nftListingsSeen">—</strong><small>Ответ провайдера</small></article>
           <article class="metric-card"><span>Активных записей</span><strong id="nftListingsActive">—</strong><small>После нормализации</small></article>
-          <article class="metric-card"><span>Последняя проверка</span><strong id="nftListingsChecked">—</strong><small>Время UTC</small></article>
+          <article class="metric-card"><span>Последняя проверка</span><strong id="nftListingsChecked">—</strong><small>Время проверки · локальное время</small></article>
           <article class="metric-card"><span>Провайдер</span><strong id="nftProviderName">OpenSea</strong><small>Один рынок · не арбитраж</small></article>
         </div>
         <div class="notice"><span class="notice-icon">!</span><p><strong>Ограничение:</strong> для live-запросов необходим серверный OPENSEA_API_KEY. Ключ не хранится в браузере. Пока ключ не настроен, сканер честно покажет статус интеграции. Второй маркетплейс, исполнимость продажи и полная стоимость сделки ещё не подключены.</p></div>
@@ -212,7 +212,7 @@
           <div>
             <p class="eyebrow">SOLANA / AGGREGATED LISTINGS</p>
             <h3>Solana market monitor</h3>
-            <p>Отдельный источник Magic Eden API: агрегированные листинги Solana с указанием listing source (например, M2 или Tensor). API бесплатный для публичных GET-запросов с лимитом 120 запросов в минуту и 2 запроса в секунду. Данные требуют проверки исполнимости.</p>
+            <p>Отдельный источник Magic Eden API: агрегированные листинги Solana с указанием listing source (например, M2 или Tensor). Публичные GET-запросы документированы как бесплатные (до 120 запросов в минуту и 2 в секунду). Интеграция в production выключена до проверки условий API и географической допустимости. Данные не используются для рекламы.</p>
           </div>
           <form id="solanaMarketForm" class="nft-market-form">
             <label for="solanaCollectionSymbol">Magic Eden collection symbol</label>
